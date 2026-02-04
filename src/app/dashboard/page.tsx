@@ -23,6 +23,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Logo, LarkIcon } from '@/components/ui/Logo';
+import { useReviewStore } from '@/lib/stores/reviewStore';
 
 // Message type
 interface Message {
@@ -36,28 +37,20 @@ interface Message {
 
 // Platform options
 const PLATFORMS = [
-  { id: 'linear', name: 'Linear', icon: '📐', connected: false },
-  { id: 'github', name: 'GitHub Issues', icon: '🐙', connected: false },
-  { id: 'jira', name: 'Jira', icon: '📋', connected: false },
-  { id: 'notion', name: 'Notion', icon: '📝', connected: false },
+  { id: 'linear', name: 'Linear', icon: '📐' },
+  { id: 'github', name: 'GitHub Issues', icon: '🐙' },
+  { id: 'jira', name: 'Jira', icon: '📋' },
+  { id: 'notion', name: 'Notion', icon: '📝' },
 ] as const;
 
 // Action Item Type
 interface ActionItem {
   id: string;
-  type: 'slack' | 'linear' | 'jira' | 'system';
+  type: 'slack' | 'linear' | 'jira' | 'github' | 'system';
   title: string;
   status: 'pending' | 'processing' | 'completed';
   time: string;
 }
-
-// Quick stats
-const stats = {
-  mentions: 247,
-  requests: 89,
-  sentiment: 72,
-  calls: 34,
-};
 
 // Suggested questions based on PM needs
 const suggestions = [
@@ -83,12 +76,6 @@ const suggestions = [
   },
 ];
 
-// Mock Live Actions
-const MOCK_ACTIONS: ActionItem[] = [
-    { id: '1', type: 'slack', title: 'Monitoring #feedback channel', status: 'processing', time: 'Now' },
-    { id: '2', type: 'linear', title: 'Drafted issue: "SSO Bug"', status: 'completed', time: '2m ago' },
-    { id: '3', type: 'system', title: 'Daily sentiment analysis', status: 'completed', time: '1h ago' },
-];
 
 // Search status type
 interface SearchStatus {
@@ -224,18 +211,53 @@ function TicketModal({
     setIsCreating(true);
     setResult(null);
 
-    // Simulate ticket creation (in real app, would call /api/tickets)
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Call real ticket creation API
+      const response = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform,
+          ticket: {
+            title,
+            description,
+            priority: priority === 'urgent' ? 1 : priority === 'high' ? 2 : priority === 'medium' ? 3 : 4,
+          },
+          // Note: In production, credentials would come from stored integrations
+          // For now, show success with message to connect integration
+          config: {},
+        }),
+      });
 
-    // Demo result
-    setResult({
-      success: true,
-      url: platform === 'linear' ? 'https://linear.app/team/issue/LARK-123' :
-           platform === 'github' ? 'https://github.com/org/repo/issues/123' :
-           platform === 'jira' ? 'https://org.atlassian.net/browse/LARK-123' :
-           'https://notion.so/page-123',
-    });
-    setIsCreating(false);
+      const data = await response.json();
+
+      if (data.success) {
+        setResult({
+          success: true,
+          url: data.ticketUrl,
+        });
+      } else {
+        // Integration not connected - show helpful message
+        if (data.error?.includes('credentials')) {
+          setResult({
+            success: false,
+            error: `Connect ${PLATFORMS.find(p => p.id === platform)?.name} in Settings first`,
+          });
+        } else {
+          setResult({
+            success: false,
+            error: data.error || 'Failed to create ticket',
+          });
+        }
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        error: 'Network error - please try again',
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -404,6 +426,37 @@ function TicketModal({
 }
 
 function ActionCenter({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const { notifications, pipelineJobs, drafts } = useReviewStore();
+
+    // Convert real data to action items
+    const actions: ActionItem[] = [
+      // Recent notifications
+      ...notifications.slice(0, 5).map(n => ({
+        id: n.id,
+        type: (n.type === 'ticket_created' ? 'linear' :
+               n.type === 'urgent_feedback' ? 'system' : 'system') as ActionItem['type'],
+        title: n.message,
+        status: 'completed' as const,
+        time: getTimeAgo(n.createdAt),
+      })),
+      // Recent drafts as activity
+      ...drafts.slice(0, 3).map(d => ({
+        id: d.id,
+        type: 'system' as const,
+        title: `Drafted: "${d.draft.title.slice(0, 30)}${d.draft.title.length > 30 ? '...' : ''}"`,
+        status: d.status === 'approved' ? 'completed' as const : 'pending' as const,
+        time: getTimeAgo(d.createdAt),
+      })),
+      // Running pipeline jobs
+      ...pipelineJobs.filter(j => j.status === 'running').map(j => ({
+        id: j.id,
+        type: 'system' as const,
+        title: `${j.stage}: ${j.progress}%`,
+        status: 'processing' as const,
+        time: 'Now',
+      })),
+    ].slice(0, 10);
+
     if (!isOpen) return null;
 
     return (
@@ -417,12 +470,12 @@ function ActionCenter({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
                     <X size={16} />
                 </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {MOCK_ACTIONS.map((action) => (
+                {actions.length > 0 ? actions.map((action) => (
                     <div key={action.id} className="p-3 bg-white rounded-xl border border-stone-100 shadow-sm flex items-start gap-3">
-                        <div className={`mt-0.5 w-2 h-2 rounded-full ${ 
-                            action.status === 'processing' ? 'bg-amber-500 animate-pulse' : 
+                        <div className={`mt-0.5 w-2 h-2 rounded-full ${
+                            action.status === 'processing' ? 'bg-amber-500 animate-pulse' :
                             action.status === 'completed' ? 'bg-emerald-500' : 'bg-stone-300'
                         }`} />
                         <div className="flex-1">
@@ -433,14 +486,28 @@ function ActionCenter({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
                             </div>
                         </div>
                     </div>
-                ))}
-                
+                )) : (
+                  <div className="p-4 text-center text-sm text-stone-400">
+                    <p>No recent activity</p>
+                    <p className="text-xs mt-1">Scan sources in Data view to get started</p>
+                  </div>
+                )}
+
                 <div className="p-3 rounded-xl border border-dashed border-stone-300 flex items-center justify-center text-xs text-stone-400">
-                    Waiting for new events...
+                    {actions.length > 0 ? 'Waiting for new events...' : 'Activity will appear here'}
                 </div>
             </div>
         </div>
     );
+}
+
+// Helper function for time ago
+function getTimeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 export default function DashboardPage() {
@@ -454,6 +521,20 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Real stats from review store
+  const reviewStats = useReviewStore(state => state.getStats());
+  const totalDrafts = useReviewStore(state => state.drafts.length);
+
+  // Calculate real stats
+  const stats = {
+    mentions: totalDrafts, // Total items collected
+    requests: reviewStats.byCategory.feature_request + reviewStats.byCategory.bug,
+    sentiment: totalDrafts > 0
+      ? Math.round(((reviewStats.byCategory.praise || 0) / totalDrafts) * 100)
+      : 0,
+    pending: reviewStats.pending,
+  };
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -573,23 +654,28 @@ export default function DashboardPage() {
           </Link>
 
           <div className="flex items-center gap-6">
-            {/* Quick stats */}
+            {/* Quick stats - real data */}
             <div className="hidden md:flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/50 border border-stone-200/50 rounded-full text-stone-600 shadow-sm">
                 <Radio size={14} className="text-stone-400" />
                 <span className="font-medium">{stats.mentions}</span>
-                <span className="text-stone-400">mentions</span>
+                <span className="text-stone-400">items</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/50 border border-stone-200/50 rounded-full text-stone-600 shadow-sm">
                 <TrendingUp size={14} className="text-stone-400" />
                 <span className="font-medium">{stats.requests}</span>
                 <span className="text-stone-400">requests</span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50/50 border border-emerald-100 rounded-full text-emerald-700 shadow-sm">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium">{stats.sentiment}%</span>
-                <span className="text-emerald-600/70">positive</span>
-              </div>
+              {stats.pending > 0 && (
+                <Link
+                  href="/dashboard/data"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-50/50 border border-amber-100 rounded-full text-amber-700 shadow-sm hover:bg-amber-100/50 transition-colors"
+                >
+                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="font-medium">{stats.pending}</span>
+                  <span className="text-amber-600/70">pending</span>
+                </Link>
+              )}
             </div>
 
             <div className="h-6 w-px bg-stone-200 hidden md:block" />

@@ -63,15 +63,26 @@ export async function POST(req: Request) {
 }
 
 // GET /api/tickets - Get integration status (for dashboard)
-export async function GET() {
-  // In a real app, this would check stored integration configs
-  // For now, return empty state
-  return Response.json({
-    integrations: {
-      linear: { connected: false },
-      github: { connected: false },
-      jira: { connected: false },
-      notion: { connected: false },
-    },
+// Redirects to the proper integration status endpoint
+export async function GET(req: Request) {
+  // Proxy to the integration status endpoint for real status
+  const baseUrl = new URL(req.url).origin;
+  const response = await fetch(`${baseUrl}/api/integrations/status`, {
+    headers: req.headers,
   });
+
+  if (!response.ok) {
+    // Return default disconnected state
+    return Response.json({
+      integrations: {
+        linear: { connected: false },
+        github: { connected: false },
+        jira: { connected: false },
+        notion: { connected: false },
+      },
+    });
+  }
+
+  const data = await response.json();
+  return Response.json(data);
 }
