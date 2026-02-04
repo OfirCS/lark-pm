@@ -1,63 +1,334 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
   RefreshCw,
   Inbox,
-  AlertTriangle,
   Loader2,
   Plus,
-  Zap,
+  Check,
+  X,
+  Filter,
+  Search,
+  ChevronDown,
+  ExternalLink,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Target,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
-import { ReviewCard } from '@/components/review/ReviewCard';
-import { ReviewFilters, BulkActions } from '@/components/review/ReviewFilters';
 import { useReviewStore, createDraftFromFeedback } from '@/lib/stores/reviewStore';
-import type { DraftedTicket, FeedbackItem, ClassificationResult } from '@/types/pipeline';
+import type { DraftedTicket, FeedbackItem, ClassificationResult, ReviewStatus, FeedbackCategory, Priority } from '@/types/pipeline';
+import {
+  PRIORITY_COLORS,
+  CATEGORY_COLORS,
+  SOURCE_CONFIG,
+} from '@/types/pipeline';
+
+// --- Utility Functions ---
+
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatCategory(category: string): string {
+  return category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+// --- Components ---
+
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 focus:border-stone-300 cursor-pointer"
+      >
+        <option value="all">{label}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+    </div>
+  );
+}
+
+function StatBadge({
+  icon: Icon,
+  label,
+  value,
+  variant = 'default'
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  variant?: 'default' | 'warning' | 'success';
+}) {
+  const styles = {
+    default: 'bg-white border-stone-200 text-stone-600',
+    warning: 'bg-amber-50 border-amber-200 text-amber-700',
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+  };
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${styles[variant]}`}>
+      <Icon size={18} className="opacity-60" />
+      <div>
+        <p className="text-lg font-semibold">{value}</p>
+        <p className="text-xs opacity-70">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// Clean Feedback Card
+function FeedbackCard({
+  draft,
+  onApprove,
+  onReject,
+}: {
+  draft: DraftedTicket;
+  onApprove: (id: string, platform: 'linear' | 'jira' | 'github') => void;
+  onReject: (id: string) => void;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'linear' | 'jira' | 'github'>('linear');
+
+  const { feedbackItem, classification, draft: ticketDraft, status } = draft;
+  const priorityColors = PRIORITY_COLORS[classification.priority];
+  const categoryColors = CATEGORY_COLORS[classification.category];
+  const sourceConfig = SOURCE_CONFIG[feedbackItem.source] || SOURCE_CONFIG.reddit;
+  const timeAgo = getTimeAgo(new Date(draft.createdAt));
+
+  const isActionable = status === 'pending' || status === 'edited';
+
+  return (
+    <div className={`bg-white rounded-2xl border transition-all duration-200 ${
+      status === 'approved'
+        ? 'border-emerald-200 bg-emerald-50/30'
+        : status === 'rejected'
+        ? 'border-stone-200 opacity-50'
+        : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
+    }`}>
+      {/* Main Content */}
+      <div className="p-5">
+        {/* Header Row */}
+        <div className="flex items-start gap-4 mb-4">
+          {/* Priority Indicator */}
+          <div className={`w-1 h-16 rounded-full flex-shrink-0 ${
+            classification.priority === 'urgent' ? 'bg-rose-500' :
+            classification.priority === 'high' ? 'bg-orange-400' :
+            classification.priority === 'medium' ? 'bg-blue-400' :
+            'bg-stone-200'
+          }`} />
+
+          <div className="flex-1 min-w-0">
+            {/* Title */}
+            <h3 className="font-medium text-stone-900 mb-1 pr-4">
+              {ticketDraft.title}
+            </h3>
+
+            {/* Meta */}
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${categoryColors.bg} ${categoryColors.text}`}>
+                {formatCategory(classification.category)}
+              </span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${priorityColors.bg} ${priorityColors.text}`}>
+                {classification.priority}
+              </span>
+              <span className="text-stone-400">·</span>
+              <span className="text-stone-500 text-xs">{sourceConfig.label}</span>
+              <span className="text-stone-400">·</span>
+              <span className="text-stone-400 text-xs">{timeAgo}</span>
+            </div>
+          </div>
+
+          {/* Status Badge */}
+          {status === 'approved' && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium">
+              <CheckCircle2 size={14} />
+              Created
+            </span>
+          )}
+          {status === 'rejected' && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 text-stone-500 rounded-lg text-xs font-medium">
+              Dismissed
+            </span>
+          )}
+        </div>
+
+        {/* Original Feedback Quote */}
+        <div className="bg-stone-50 rounded-xl p-4 mb-4">
+          <p className="text-sm text-stone-600 leading-relaxed">
+            &ldquo;{feedbackItem.content.slice(0, 200)}{feedbackItem.content.length > 200 ? '...' : ''}&rdquo;
+          </p>
+          <div className="flex items-center gap-2 mt-2 text-xs text-stone-400">
+            <span>{feedbackItem.authorHandle || feedbackItem.author}</span>
+            {feedbackItem.sourceUrl && (
+              <>
+                <span>·</span>
+                <a
+                  href={feedbackItem.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-stone-500 hover:text-stone-700 flex items-center gap-1"
+                >
+                  View source <ExternalLink size={10} />
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Expandable Details */}
+        {showDetails && (
+          <div className="border-t border-stone-100 pt-4 mt-4 space-y-3">
+            <div>
+              <p className="text-xs font-medium text-stone-500 mb-1">Suggested Description</p>
+              <p className="text-sm text-stone-700 whitespace-pre-line">{ticketDraft.description}</p>
+            </div>
+            {ticketDraft.suggestedLabels.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Labels</p>
+                <div className="flex flex-wrap gap-1">
+                  {ticketDraft.suggestedLabels.map((label) => (
+                    <span key={label} className="px-2 py-0.5 bg-stone-100 text-stone-600 rounded text-xs">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        {isActionable && (
+          <div className="flex items-center justify-between pt-4 border-t border-stone-100 mt-4">
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+            >
+              {showDetails ? 'Hide details' : 'Show details'}
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onReject(draft.id)}
+                className="px-3 py-2 text-sm text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              >
+                Dismiss
+              </button>
+
+              {/* Platform Selector + Create Button */}
+              <div className="flex items-center bg-stone-900 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => onApprove(draft.id, selectedPlatform)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 transition-colors"
+                >
+                  <Check size={14} />
+                  Create Ticket
+                </button>
+                <div className="w-px h-6 bg-stone-700" />
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value as 'linear' | 'jira' | 'github')}
+                  className="appearance-none bg-transparent text-white text-xs px-3 py-2 cursor-pointer focus:outline-none"
+                >
+                  <option value="linear">Linear</option>
+                  <option value="jira">Jira</option>
+                  <option value="github">GitHub</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Approved ticket link */}
+        {status === 'approved' && draft.createdTicket && (
+          <div className="flex items-center justify-between pt-4 border-t border-emerald-100 mt-4">
+            <span className="text-sm text-emerald-700">
+              Ticket created in {draft.createdTicket.platform}
+            </span>
+            <a
+              href={draft.createdTicket.ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              Open ticket <ExternalLink size={14} />
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Main Page ---
 
 export default function ReviewQueuePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [editingDraft, setEditingDraft] = useState<DraftedTicket | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  // Store state
   const {
     drafts,
-    filters,
-    selectedIds,
-    setFilters,
-    clearFilters,
-    selectDraft,
-    deselectDraft,
-    selectAll,
-    deselectAll,
     approveDraft,
     rejectDraft,
-    bulkApprove,
-    bulkReject,
-    getFilteredDrafts,
     getStats,
-    getPendingCount,
-    getUrgentCount,
     addDraft,
   } = useReviewStore();
 
-  const filteredDrafts = getFilteredDrafts();
   const stats = getStats();
-  const pendingCount = getPendingCount();
-  const urgentCount = getUrgentCount();
 
-  // Pending items only for bulk actions
-  const pendingFilteredDrafts = filteredDrafts.filter(
-    (d) => d.status === 'pending' || d.status === 'edited'
-  );
+  // Filter drafts
+  const filteredDrafts = drafts.filter((draft) => {
+    if (statusFilter !== 'all' && draft.status !== statusFilter) return false;
+    if (categoryFilter !== 'all' && draft.classification.category !== categoryFilter) return false;
+    if (priorityFilter !== 'all' && draft.classification.priority !== priorityFilter) return false;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        draft.draft.title.toLowerCase().includes(query) ||
+        draft.feedbackItem.content.toLowerCase().includes(query)
+      );
+    }
+    return true;
+  });
 
-  // Handle refresh / ingest
+  // Group by status for better organization
+  const pendingDrafts = filteredDrafts.filter(d => d.status === 'pending');
+  const completedDrafts = filteredDrafts.filter(d => d.status === 'approved' || d.status === 'rejected');
+
+  // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/pipeline/ingest', {
+      await fetch('/api/pipeline/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,7 +336,6 @@ export default function ReviewQueuePage() {
           queries: ['saas', 'startup', 'product feedback'],
         }),
       });
-      // Pipeline will add items to store via notifications
     } catch (error) {
       console.error('Refresh failed:', error);
     } finally {
@@ -74,12 +344,11 @@ export default function ReviewQueuePage() {
   };
 
   // Handle approve
-  const handleApprove = async (id: string, platform: 'linear' | 'jira') => {
+  const handleApprove = async (id: string, platform: 'linear' | 'jira' | 'github') => {
     const draft = drafts.find((d) => d.id === id);
     if (!draft) return;
 
     try {
-      // Call tickets API to create in platform
       const response = await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,47 +368,19 @@ export default function ReviewQueuePage() {
       });
 
       const result = await response.json();
-
-      if (result.success) {
-        approveDraft(id, platform, {
-          ticketId: result.ticketId,
-          ticketUrl: result.ticketUrl,
-        });
-      } else {
-        // Still mark as approved but note the error
-        approveDraft(id, platform);
-        console.error('Ticket creation failed:', result.error);
-      }
+      approveDraft(id, platform as 'linear' | 'jira', result.success ? { ticketId: result.ticketId, ticketUrl: result.ticketUrl } : undefined);
     } catch (error) {
       console.error('Approve failed:', error);
-      // Mark as approved anyway for demo
-      approveDraft(id, platform);
+      approveDraft(id, platform as 'linear' | 'jira');
     }
   };
 
   // Handle reject
-  const handleReject = (id: string, reason?: string) => {
-    rejectDraft(id, reason);
+  const handleReject = (id: string) => {
+    rejectDraft(id);
   };
 
-  // Handle edit
-  const handleEdit = (id: string) => {
-    const draft = drafts.find((d) => d.id === id);
-    if (draft) {
-      setEditingDraft(draft);
-    }
-  };
-
-  // Handle selection
-  const handleSelect = (id: string) => {
-    if (selectedIds.includes(id)) {
-      deselectDraft(id);
-    } else {
-      selectDraft(id);
-    }
-  };
-
-  // Add demo data for testing
+  // Add demo data
   const addDemoData = () => {
     const demoFeedback: FeedbackItem = {
       id: `fb_demo_${Date.now()}`,
@@ -154,10 +395,7 @@ export default function ReviewQueuePage() {
       createdAt: new Date().toISOString(),
       fetchedAt: new Date().toISOString(),
       engagementScore: 85,
-      metadata: {
-        subreddit: 'SaaS',
-        replyCount: 23,
-      },
+      metadata: { subreddit: 'SaaS', replyCount: 23 },
     };
 
     const demoClassification: ClassificationResult = {
@@ -173,9 +411,9 @@ export default function ReviewQueuePage() {
     const demoDraft = createDraftFromFeedback(demoFeedback, demoClassification, {
       title: 'Add SSO/SAML Authentication for Enterprise',
       description: `## Context
-A Reddit user (enterprise segment) is requesting SSO/SAML authentication, stating it's blocking their enterprise rollout to 500+ employees.
+A user is requesting SSO/SAML authentication, stating it's blocking their enterprise rollout to 500+ employees.
 
-## User Quote
+## User Feedback
 > "We love the product but our IT team requires SSO/SAML authentication before we can deploy to our 500+ employees."
 
 ## Recommendation
@@ -191,171 +429,202 @@ This is a high-priority feature request from an enterprise prospect. SSO is a co
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 relative">
-      {/* Texture */}
-      <div className="grain fixed inset-0 z-[100] pointer-events-none opacity-30" />
-
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-stone-50/80 backdrop-blur-md border-b border-stone-200/50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-stone-200/60">
+        <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors"
-              >
-                <ArrowLeft size={18} />
+              <Link href="/dashboard/data" className="text-stone-400 hover:text-stone-600 transition-colors">
+                <ArrowLeft size={20} />
               </Link>
-              <Logo size="sm" />
-              <div className="w-px h-6 bg-stone-200" />
+              <div className="h-6 w-px bg-stone-200" />
               <div>
-                <h1 className="text-lg font-medium text-stone-900">Review Queue</h1>
+                <h1 className="text-lg font-semibold text-stone-900">Review Queue</h1>
                 <p className="text-xs text-stone-500">
-                  {pendingCount} pending{urgentCount > 0 && ` • ${urgentCount} urgent`}
+                  {stats.pending} pending · {stats.approved} created
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={addDemoData}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-stone-600 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors"
               >
                 <Plus size={16} />
-                Add Demo
+                Add Sample
               </button>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-xl hover:bg-stone-800 transition-colors disabled:opacity-50"
               >
                 {isRefreshing ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <RefreshCw size={16} />
                 )}
-                Scan Sources
+                Refresh
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-stone-900">{stats.total}</p>
-            <p className="text-xs text-stone-500">Total items</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-amber-600">{stats.pending}</p>
-            <p className="text-xs text-stone-500">Pending review</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-emerald-600">{stats.approved}</p>
-            <p className="text-xs text-stone-500">Approved</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-rose-600">
-              {stats.byPriority.urgent + stats.byPriority.high}
-            </p>
-            <p className="text-xs text-stone-500">High priority</p>
-          </div>
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Stats Row */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <StatBadge icon={Inbox} label="Total" value={stats.total} />
+          <StatBadge icon={Clock} label="Pending" value={stats.pending} variant={stats.pending > 0 ? 'warning' : 'default'} />
+          <StatBadge icon={CheckCircle2} label="Created" value={stats.approved} variant="success" />
+          <StatBadge icon={AlertCircle} label="High Priority" value={stats.byPriority.urgent + stats.byPriority.high} />
         </div>
 
         {/* Filters */}
-        <div className="mb-4">
-          <ReviewFilters
-            filters={filters}
-            onFilterChange={setFilters}
-            onClearFilters={clearFilters}
-            stats={stats}
+        <div className="flex items-center gap-3 mb-6">
+          {/* Search */}
+          <div className="relative flex-1 max-w-xs">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search feedback..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 focus:border-stone-300"
+            />
+          </div>
+
+          {/* Filter Dropdowns */}
+          <FilterDropdown
+            label="All Status"
+            value={statusFilter}
+            options={[
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Created' },
+              { value: 'rejected', label: 'Dismissed' },
+            ]}
+            onChange={setStatusFilter}
           />
+          <FilterDropdown
+            label="All Types"
+            value={categoryFilter}
+            options={[
+              { value: 'feature_request', label: 'Feature Request' },
+              { value: 'bug', label: 'Bug' },
+              { value: 'question', label: 'Question' },
+              { value: 'complaint', label: 'Complaint' },
+            ]}
+            onChange={setCategoryFilter}
+          />
+          <FilterDropdown
+            label="All Priorities"
+            value={priorityFilter}
+            options={[
+              { value: 'urgent', label: 'Urgent' },
+              { value: 'high', label: 'High' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'low', label: 'Low' },
+            ]}
+            onChange={setPriorityFilter}
+          />
+
+          {(statusFilter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all' || searchQuery) && (
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                setCategoryFilter('all');
+                setPriorityFilter('all');
+                setSearchQuery('');
+              }}
+              className="text-sm text-stone-500 hover:text-stone-700"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
-        {/* Bulk actions */}
-        <div className="mb-4">
-          <BulkActions
-            selectedCount={selectedIds.length}
-            onSelectAll={selectAll}
-            onDeselectAll={deselectAll}
-            onBulkApprove={(platform) => {
-              bulkApprove(platform);
-            }}
-            onBulkReject={() => {
-              bulkReject();
-            }}
-            totalCount={pendingFilteredDrafts.length}
-          />
-        </div>
-
-        {/* Queue */}
+        {/* Content */}
         {filteredDrafts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white border border-stone-200 rounded-2xl">
-            <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center mb-4">
-              <Inbox size={24} className="text-stone-400" />
+            <div className="w-16 h-16 rounded-2xl bg-stone-50 flex items-center justify-center mb-4">
+              <Inbox size={28} className="text-stone-300" />
             </div>
             <h3 className="text-lg font-medium text-stone-900 mb-2">
-              No items in queue
+              {drafts.length === 0 ? 'No feedback to review' : 'No matching items'}
             </h3>
             <p className="text-sm text-stone-500 text-center max-w-sm mb-6">
-              Click &quot;Scan Sources&quot; to fetch feedback from Reddit and Twitter,
-              or add demo data to test the flow.
+              {drafts.length === 0
+                ? 'Collect feedback from the pipeline to see items here, or add a sample to test the flow.'
+                : 'Try adjusting your filters to see more results.'}
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={addDemoData}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors"
-              >
-                <Plus size={16} />
-                Add Demo Data
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors"
-              >
-                <Zap size={16} />
-                Scan Sources
-              </button>
-            </div>
+            {drafts.length === 0 && (
+              <div className="flex gap-3">
+                <button
+                  onClick={addDemoData}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-stone-700 bg-stone-100 rounded-xl hover:bg-stone-200 transition-colors"
+                >
+                  <Plus size={16} />
+                  Add Sample Data
+                </button>
+                <Link
+                  href="/dashboard/data"
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-stone-900 rounded-xl hover:bg-stone-800 transition-colors"
+                >
+                  Go to Pipeline
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredDrafts.map((draft) => (
-              <ReviewCard
+            {/* Pending Items */}
+            {pendingDrafts.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-sm font-medium text-stone-500 uppercase tracking-wider">
+                  Pending Review ({pendingDrafts.length})
+                </h2>
+                {pendingDrafts.map((draft) => (
+                  <FeedbackCard
+                    key={draft.id}
+                    draft={draft}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Completed Items */}
+            {completedDrafts.length > 0 && statusFilter === 'all' && (
+              <div className="space-y-4 pt-6">
+                <h2 className="text-sm font-medium text-stone-400 uppercase tracking-wider">
+                  Completed ({completedDrafts.length})
+                </h2>
+                {completedDrafts.map((draft) => (
+                  <FeedbackCard
+                    key={draft.id}
+                    draft={draft}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Show completed when filtered */}
+            {statusFilter !== 'all' && filteredDrafts.map((draft) => (
+              <FeedbackCard
                 key={draft.id}
                 draft={draft}
-                isSelected={selectedIds.includes(draft.id)}
-                onSelect={handleSelect}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                onEdit={handleEdit}
               />
             ))}
           </div>
         )}
       </main>
-
-      {/* Edit modal would go here */}
-      {editingDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6">
-            <h2 className="text-lg font-medium mb-4">Edit Ticket Draft</h2>
-            <p className="text-sm text-stone-500 mb-4">
-              Editing functionality coming soon. For now, approve or reject as-is.
-            </p>
-            <button
-              onClick={() => setEditingDraft(null)}
-              className="px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

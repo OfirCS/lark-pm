@@ -4,12 +4,11 @@ import { useState } from 'react';
 import {
   Check,
   X,
-  Edit3,
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  AlertTriangle,
   Copy,
+  CheckCircle2,
 } from 'lucide-react';
 import type { DraftedTicket } from '@/types/pipeline';
 import {
@@ -38,12 +37,12 @@ export function ReviewCard({
 }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'linear' | 'jira'>('linear');
 
   const { feedbackItem, classification, draft: ticketDraft, status } = draft;
   const sourceConfig = SOURCE_CONFIG[feedbackItem.source] || SOURCE_CONFIG.reddit;
   const priorityColors = PRIORITY_COLORS[classification.priority];
   const categoryColors = CATEGORY_COLORS[classification.category];
-  const sentimentColors = SENTIMENT_COLORS[classification.sentiment];
 
   const isActionable = status === 'pending' || status === 'edited';
   const timeAgo = getTimeAgo(new Date(draft.createdAt));
@@ -57,11 +56,11 @@ export function ReviewCard({
           ? 'border-emerald-200 bg-emerald-50/20'
           : status === 'rejected'
           ? 'border-stone-200 bg-stone-50/50 opacity-60'
-          : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-smooth'
+          : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-md'
       }`}
     >
-      {/* Selection checkbox + Header */}
-      <div className="flex items-start gap-4 p-5 pb-3">
+      {/* Header */}
+      <div className="flex items-start gap-4 p-5 pb-4">
         {isActionable && (
           <button
             onClick={() => onSelect(draft.id)}
@@ -76,7 +75,7 @@ export function ReviewCard({
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Source + Author + Time */}
+          {/* Source + Meta Row */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span
               className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium"
@@ -92,14 +91,13 @@ export function ReviewCard({
               </span>
             )}
 
-            <span className="text-xs text-stone-400">•</span>
+            <span className="text-xs text-stone-400">·</span>
             <span className="text-xs text-stone-500">
               {feedbackItem.authorHandle || feedbackItem.author}
             </span>
-            <span className="text-xs text-stone-400">•</span>
+            <span className="text-xs text-stone-400">·</span>
             <span className="text-xs text-stone-400">{timeAgo}</span>
 
-            {/* External link */}
             <a
               href={feedbackItem.sourceUrl}
               target="_blank"
@@ -110,26 +108,26 @@ export function ReviewCard({
             </a>
           </div>
 
-          {/* Original feedback content */}
-          <div className="relative">
-            {feedbackItem.title && (
-              <p className="font-medium text-stone-900 text-sm mb-1">
-                {feedbackItem.title}
-              </p>
-            )}
+          {/* Ticket Title */}
+          <h3 className="font-medium text-stone-900 text-sm mb-2">
+            {draft.editedDraft?.title || ticketDraft.title}
+          </h3>
+
+          {/* Original Feedback */}
+          <div className="bg-stone-50 rounded-xl p-3 mb-3">
             <p
               className={`text-sm text-stone-600 leading-relaxed ${
-                !isExpanded && feedbackItem.content.length > 200
+                !isExpanded && feedbackItem.content.length > 150
                   ? 'line-clamp-2'
                   : ''
               }`}
             >
-              {feedbackItem.content}
+              &ldquo;{feedbackItem.content}&rdquo;
             </p>
-            {feedbackItem.content.length > 200 && (
+            {feedbackItem.content.length > 150 && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-1 text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                className="mt-2 text-xs text-stone-500 hover:text-stone-700 flex items-center gap-1"
               >
                 {isExpanded ? (
                   <>
@@ -144,43 +142,36 @@ export function ReviewCard({
             )}
           </div>
 
-          {/* Classification badges */}
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {/* Classification Tags */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${categoryColors.bg} ${categoryColors.text} ${categoryColors.border} border`}
+              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${categoryColors.bg} ${categoryColors.text}`}
             >
               {formatCategory(classification.category)}
             </span>
             <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${priorityColors.bg} ${priorityColors.text} ${priorityColors.border} border`}
+              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize ${priorityColors.bg} ${priorityColors.text}`}
             >
               {classification.priority}
             </span>
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${sentimentColors.bg} ${sentimentColors.text}`}
-            >
-              {classification.sentiment}
-            </span>
-            <span className="text-xs text-stone-400">
-              {classification.confidence}% confidence
-            </span>
-
-            {classification.duplicateOf && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200">
-                <AlertTriangle size={10} />
-                Possible duplicate
+            {classification.keywords.slice(0, 3).map((keyword) => (
+              <span
+                key={keyword}
+                className="px-2 py-0.5 text-xs bg-stone-100 text-stone-500 rounded"
+              >
+                {keyword}
               </span>
-            )}
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Drafted ticket preview */}
-      {isActionable && (
+      {/* Ticket Details (Expandable) */}
+      {isActionable && isExpanded && (
         <div className="mx-5 mb-4 p-4 bg-stone-50 rounded-xl border border-stone-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-stone-400 uppercase tracking-wide">
-              AI Draft
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-stone-500">
+              Suggested Description
             </span>
             <button
               onClick={() => {
@@ -188,20 +179,18 @@ export function ReviewCard({
                   `${ticketDraft.title}\n\n${ticketDraft.description}`
                 );
               }}
-              className="text-stone-400 hover:text-stone-600 p-1"
+              className="text-stone-400 hover:text-stone-600 p-1 rounded hover:bg-stone-200 transition-colors"
               title="Copy to clipboard"
             >
               <Copy size={12} />
             </button>
           </div>
-          <p className="font-medium text-stone-900 text-sm mb-1">
-            {draft.editedDraft?.title || ticketDraft.title}
-          </p>
-          <p className="text-xs text-stone-500 line-clamp-2">
+          <p className="text-sm text-stone-700 whitespace-pre-line leading-relaxed">
             {draft.editedDraft?.description || ticketDraft.description}
           </p>
           {ticketDraft.suggestedLabels.length > 0 && (
-            <div className="flex gap-1 mt-2 flex-wrap">
+            <div className="flex gap-1 mt-3 flex-wrap pt-3 border-t border-stone-200">
+              <span className="text-xs text-stone-500 mr-1">Labels:</span>
               {ticketDraft.suggestedLabels.map((label) => (
                 <span
                   key={label}
@@ -215,11 +204,11 @@ export function ReviewCard({
         </div>
       )}
 
-      {/* Status badge for completed items */}
+      {/* Status for Completed Items */}
       {status === 'approved' && draft.createdTicket && (
         <div className="mx-5 mb-4 p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Check size={14} className="text-emerald-600" />
+            <CheckCircle2 size={16} className="text-emerald-600" />
             <span className="text-sm font-medium text-emerald-700">
               Created in {draft.createdTicket.platform}
             </span>
@@ -230,7 +219,7 @@ export function ReviewCard({
             rel="noopener noreferrer"
             className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
           >
-            View ticket <ExternalLink size={10} />
+            Open ticket <ExternalLink size={10} />
           </a>
         </div>
       )}
@@ -239,39 +228,38 @@ export function ReviewCard({
         <div className="mx-5 mb-4 p-3 bg-stone-100 rounded-xl flex items-center gap-2">
           <X size={14} className="text-stone-500" />
           <span className="text-sm text-stone-600">
-            Rejected{draft.rejectionReason ? `: ${draft.rejectionReason}` : ''}
+            Dismissed{draft.rejectionReason ? `: ${draft.rejectionReason}` : ''}
           </span>
         </div>
       )}
 
       {/* Actions */}
       {isActionable && (
-        <div className="flex items-center gap-2 px-5 pb-5">
+        <div className="flex items-center gap-2 px-5 pb-5 pt-2 border-t border-stone-100">
           <button
-            onClick={() => onEdit(draft.id)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 hover:border-stone-300 transition-colors"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-xs text-stone-500 hover:text-stone-700 transition-colors"
           >
-            <Edit3 size={12} />
-            Edit
+            {isExpanded ? 'Hide details' : 'Show details'}
           </button>
 
           <div className="flex-1" />
 
           {showRejectConfirm ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-stone-500">Reject?</span>
+              <span className="text-xs text-stone-500">Dismiss?</span>
               <button
                 onClick={() => {
                   onReject(draft.id);
                   setShowRejectConfirm(false);
                 }}
-                className="px-3 py-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
               >
                 Yes
               </button>
               <button
                 onClick={() => setShowRejectConfirm(false)}
-                className="px-3 py-2 text-xs font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors"
               >
                 No
               </button>
@@ -280,27 +268,28 @@ export function ReviewCard({
             <>
               <button
                 onClick={() => setShowRejectConfirm(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
               >
-                <X size={12} />
-                Reject
+                Dismiss
               </button>
 
-              <div className="flex items-center gap-1 bg-stone-900 rounded-lg overflow-hidden">
+              <div className="flex items-center bg-stone-900 rounded-xl overflow-hidden">
                 <button
-                  onClick={() => onApprove(draft.id, 'linear')}
+                  onClick={() => onApprove(draft.id, selectedPlatform)}
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white hover:bg-stone-800 transition-colors"
                 >
                   <Check size={12} />
-                  Approve → Linear
+                  Create Ticket
                 </button>
                 <div className="w-px h-6 bg-stone-700" />
-                <button
-                  onClick={() => onApprove(draft.id, 'jira')}
-                  className="px-3 py-2 text-xs font-medium text-white hover:bg-stone-800 transition-colors"
+                <select
+                  value={selectedPlatform}
+                  onChange={(e) => setSelectedPlatform(e.target.value as 'linear' | 'jira')}
+                  className="appearance-none bg-transparent text-white text-xs px-3 py-2 cursor-pointer focus:outline-none"
                 >
-                  Jira
-                </button>
+                  <option value="linear">Linear</option>
+                  <option value="jira">Jira</option>
+                </select>
               </div>
             </>
           )}
