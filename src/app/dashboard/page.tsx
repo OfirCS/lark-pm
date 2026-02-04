@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Loader2,
@@ -429,36 +429,50 @@ function TicketModal({
 }
 
 function ActionCenter({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    const { notifications, pipelineJobs, drafts } = useReviewStore();
+    const notifications = useReviewStore(state => state.notifications);
+    const pipelineJobs = useReviewStore(state => state.pipelineJobs);
+    const drafts = useReviewStore(state => state.drafts);
 
-    // Convert real data to action items
-    const actions: ActionItem[] = [
+    // Convert real data to action items with useMemo
+    const actions = useMemo((): ActionItem[] => {
+      const items: ActionItem[] = [];
+
       // Recent notifications
-      ...notifications.slice(0, 5).map(n => ({
-        id: n.id,
-        type: (n.type === 'ticket_created' ? 'linear' :
-               n.type === 'urgent_feedback' ? 'system' : 'system') as ActionItem['type'],
-        title: n.message,
-        status: 'completed' as const,
-        time: getTimeAgo(n.createdAt),
-      })),
+      notifications.slice(0, 5).forEach(n => {
+        items.push({
+          id: n.id,
+          type: (n.type === 'ticket_created' ? 'linear' :
+                 n.type === 'urgent_feedback' ? 'system' : 'system') as ActionItem['type'],
+          title: n.message,
+          status: 'completed' as const,
+          time: getTimeAgo(n.createdAt),
+        });
+      });
+
       // Recent drafts as activity
-      ...drafts.slice(0, 3).map(d => ({
-        id: d.id,
-        type: 'system' as const,
-        title: `Drafted: "${d.draft.title.slice(0, 30)}${d.draft.title.length > 30 ? '...' : ''}"`,
-        status: d.status === 'approved' ? 'completed' as const : 'pending' as const,
-        time: getTimeAgo(d.createdAt),
-      })),
+      drafts.slice(0, 3).forEach(d => {
+        items.push({
+          id: d.id,
+          type: 'system' as const,
+          title: `Drafted: "${d.draft.title.slice(0, 30)}${d.draft.title.length > 30 ? '...' : ''}"`,
+          status: d.status === 'approved' ? 'completed' as const : 'pending' as const,
+          time: getTimeAgo(d.createdAt),
+        });
+      });
+
       // Running pipeline jobs
-      ...pipelineJobs.filter(j => j.status === 'running').map(j => ({
-        id: j.id,
-        type: 'system' as const,
-        title: `${j.stage}: ${j.progress}%`,
-        status: 'processing' as const,
-        time: 'Now',
-      })),
-    ].slice(0, 10);
+      pipelineJobs.filter(j => j.status === 'running').forEach(j => {
+        items.push({
+          id: j.id,
+          type: 'system' as const,
+          title: `${j.stage}: ${j.progress}%`,
+          status: 'processing' as const,
+          time: 'Now',
+        });
+      });
+
+      return items.slice(0, 10);
+    }, [notifications, pipelineJobs, drafts]);
 
     if (!isOpen) return null;
 
@@ -525,23 +539,35 @@ export default function DashboardPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Real stats from review store
-  const reviewStats = useReviewStore(state => state.getStats());
-  const totalDrafts = useReviewStore(state => state.drafts.length);
+  // Real stats from review store - use shallow comparison for drafts array
+  const drafts = useReviewStore(state => state.drafts);
 
   // Company context for personalized search
   const company = useCompanyStore(state => state.company);
   const productName = company.productName;
 
-  // Calculate real stats
-  const stats = {
-    mentions: totalDrafts, // Total items collected
-    requests: reviewStats.byCategory.feature_request + reviewStats.byCategory.bug,
-    sentiment: totalDrafts > 0
-      ? Math.round(((reviewStats.byCategory.praise || 0) / totalDrafts) * 100)
-      : 0,
-    pending: reviewStats.pending,
-  };
+  // Calculate real stats with useMemo to avoid infinite loops
+  const stats = useMemo(() => {
+    const total = drafts.length;
+    let pending = 0;
+    let featureRequests = 0;
+    let bugs = 0;
+    let praise = 0;
+
+    drafts.forEach(draft => {
+      if (draft.status === 'pending' || draft.status === 'edited') pending++;
+      if (draft.classification?.category === 'feature_request') featureRequests++;
+      if (draft.classification?.category === 'bug') bugs++;
+      if (draft.classification?.category === 'praise') praise++;
+    });
+
+    return {
+      mentions: total,
+      requests: featureRequests + bugs,
+      sentiment: total > 0 ? Math.round((praise / total) * 100) : 0,
+      pending,
+    };
+  }, [drafts]);
 
   // Close profile menu when clicking outside
   useEffect(() => {

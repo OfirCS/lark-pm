@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Home,
@@ -238,9 +238,59 @@ export default function DataPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState('');
 
-  const { drafts, addDraft, getStats, getPendingCount } = useReviewStore();
+  const drafts = useReviewStore(state => state.drafts);
+  const addDraft = useReviewStore(state => state.addDraft);
   const { company, getRedditSearchTerms, getTwitterSearchTerms } = useCompanyStore();
-  const stats = getStats();
+
+  // Calculate stats with useMemo to avoid infinite loops
+  const stats = useMemo(() => {
+    const result = {
+      total: drafts.length,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      byCategory: {
+        bug: 0,
+        feature_request: 0,
+        praise: 0,
+        question: 0,
+        complaint: 0,
+        other: 0,
+      } as Record<string, number>,
+      byPriority: {
+        urgent: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+      } as Record<string, number>,
+      bySource: {} as Record<string, number>,
+    };
+
+    drafts.forEach(draft => {
+      // Status counts
+      if (draft.status === 'pending' || draft.status === 'edited') {
+        result.pending++;
+      } else if (draft.status === 'approved') {
+        result.approved++;
+      } else if (draft.status === 'rejected') {
+        result.rejected++;
+      }
+
+      // Category counts
+      const category = draft.classification?.category || 'other';
+      result.byCategory[category] = (result.byCategory[category] || 0) + 1;
+
+      // Priority counts
+      const priority = draft.classification?.priority || 'medium';
+      result.byPriority[priority] = (result.byPriority[priority] || 0) + 1;
+
+      // Source counts
+      const source = draft.feedbackItem?.source || 'unknown';
+      result.bySource[source] = (result.bySource[source] || 0) + 1;
+    });
+
+    return result;
+  }, [drafts]);
 
   // Get company-specific search terms
   const productName = company.productName || 'product';
