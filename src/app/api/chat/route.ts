@@ -57,9 +57,36 @@ interface ChatMessage {
   content: string;
 }
 
+// Collected feedback item (from review store)
+interface CollectedFeedbackItem {
+  id: string;
+  content: string;
+  title?: string;
+  source: string;
+  category: string;
+  priority: string;
+  sentiment: string;
+  suggestedTitle: string;
+  status: string;
+}
+
+// Stats summary
+interface CollectedStats {
+  total: number;
+  pending: number;
+  byCategory: Record<string, number>;
+  byPriority: Record<string, number>;
+  bySource: Record<string, number>;
+}
+
 interface ChatRequest {
   messages: ChatMessage[];
   productName?: string;
+  // Collected feedback data from the review store
+  collectedData?: {
+    items: CollectedFeedbackItem[];
+    stats: CollectedStats;
+  };
 }
 
 // Detect if the user is asking for data that requires searching
@@ -171,9 +198,66 @@ async function fetchSourceData(
   return parts.join('\n\n');
 }
 
+// Format collected feedback data for AI context
+function formatCollectedDataForContext(data: ChatRequest['collectedData']): string {
+  if (!data || data.items.length === 0) {
+    return '';
+  }
+
+  const { items, stats } = data;
+  const parts: string[] = [];
+
+  // Summary stats
+  parts.push(`## Your Collected Feedback Data (${stats.total} items)`);
+  parts.push(`- Pending review: ${stats.pending}`);
+  parts.push(`- By Category: ${Object.entries(stats.byCategory).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+  parts.push(`- By Priority: ${Object.entries(stats.byPriority).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+  parts.push(`- By Source: ${Object.entries(stats.bySource).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+
+  // Top items by category
+  const bugs = items.filter(i => i.category === 'bug').slice(0, 3);
+  const features = items.filter(i => i.category === 'feature_request').slice(0, 3);
+  const urgent = items.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
+
+  if (bugs.length > 0) {
+    parts.push('\n### Top Bugs:');
+    bugs.forEach((b, i) => {
+      parts.push(`${i + 1}. "${b.suggestedTitle}" (${b.source}) - ${b.priority} priority`);
+      parts.push(`   > ${b.content.slice(0, 150)}${b.content.length > 150 ? '...' : ''}`);
+    });
+  }
+
+  if (features.length > 0) {
+    parts.push('\n### Top Feature Requests:');
+    features.forEach((f, i) => {
+      parts.push(`${i + 1}. "${f.suggestedTitle}" (${f.source}) - ${f.priority} priority`);
+      parts.push(`   > ${f.content.slice(0, 150)}${f.content.length > 150 ? '...' : ''}`);
+    });
+  }
+
+  if (urgent.length > 0) {
+    parts.push('\n### Urgent/High Priority Items:');
+    urgent.forEach((u, i) => {
+      parts.push(`${i + 1}. [${u.category}] "${u.suggestedTitle}" - ${u.sentiment} sentiment`);
+      parts.push(`   > ${u.content.slice(0, 150)}${u.content.length > 150 ? '...' : ''}`);
+    });
+  }
+
+  // All items summary
+  parts.push('\n### All Collected Items:');
+  items.slice(0, 10).forEach((item, i) => {
+    parts.push(`${i + 1}. [${item.category}] "${item.suggestedTitle || item.title || 'Untitled'}" - ${item.source} (${item.priority}, ${item.sentiment})`);
+  });
+  if (items.length > 10) {
+    parts.push(`... and ${items.length - 10} more items`);
+  }
+
+  return parts.join('\n');
+}
+
 export async function POST(req: Request) {
   try {
-    const { messages, productName } = (await req.json()) as ChatRequest;
+    const { messages, productName, collectedData } = (await req.json()) as ChatRequest;
 
     if (!messages || messages.length === 0) {
       return new Response('No messages provided', { status: 400 });
@@ -183,10 +267,13 @@ export async function POST(req: Request) {
     const intent = detectSearchIntent(lastMessage.content);
     const encoder = new TextEncoder();
 
+    // Format collected data context
+    const collectedDataContext = formatCollectedDataForContext(collectedData);
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let contextData = '';
+          let contextData = collectedDataContext;
 
           // Step 1: Search Reddit if needed
           if (intent.needsReddit) {

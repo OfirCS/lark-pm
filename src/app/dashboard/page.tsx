@@ -86,6 +86,28 @@ interface SearchStatus {
   count?: number;
 }
 
+// Collected data type for chat context
+interface CollectedDataForChat {
+  items: Array<{
+    id: string;
+    content: string;
+    title?: string;
+    source: string;
+    category: string;
+    priority: string;
+    sentiment: string;
+    suggestedTitle: string;
+    status: string;
+  }>;
+  stats: {
+    total: number;
+    pending: number;
+    byCategory: Record<string, number>;
+    byPriority: Record<string, number>;
+    bySource: Record<string, number>;
+  };
+}
+
 // Stream AI response from the real API
 async function streamChatResponse(
   query: string,
@@ -93,7 +115,8 @@ async function streamChatResponse(
   onDone: () => void,
   onError: (error: string) => void,
   onSearchStatus?: (status: SearchStatus) => void,
-  productName?: string
+  productName?: string,
+  collectedData?: CollectedDataForChat
 ) {
   try {
     const response = await fetch('/api/chat', {
@@ -102,6 +125,7 @@ async function streamChatResponse(
       body: JSON.stringify({
         messages: [{ role: 'user', content: query }],
         productName, // Pass company product name for context
+        collectedData, // Pass collected feedback data for context
       }),
     });
 
@@ -658,7 +682,22 @@ export default function DashboardPage() {
       (status) => {
         setSearchStatus(status);
       },
-      productName // Pass company name for personalized search
+      productName, // Pass company name for personalized search
+      // Pass collected feedback data for AI context
+      drafts.length > 0 ? {
+        items: drafts.map(d => ({
+          id: d.id,
+          content: d.feedbackItem.content,
+          title: d.feedbackItem.title,
+          source: d.feedbackItem.source,
+          category: d.classification?.category || 'other',
+          priority: d.classification?.priority || 'medium',
+          sentiment: d.classification?.sentiment || 'neutral',
+          suggestedTitle: d.draft.title,
+          status: d.status,
+        })),
+        stats: stats,
+      } : undefined
     );
   };
 
