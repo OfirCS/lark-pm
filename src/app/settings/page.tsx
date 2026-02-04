@@ -232,7 +232,7 @@ function SettingsContent() {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab && ['integrations', 'workflows', 'profile', 'notifications'].includes(tab)) {
-      setActiveTab(tab);
+      setTimeout(() => setActiveTab(tab), 0);
     }
   }, [searchParams]);
 

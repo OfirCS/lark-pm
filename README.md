@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lark
 
-## Getting Started
+AI-powered PM assistant that automatically turns customer feedback into actionable tickets.
 
-First, run the development server:
+## What it does
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Lark monitors your customer feedback sources (Reddit, Twitter/X), uses AI to classify and prioritize issues, drafts tickets, and sends them to your PM tools (Linear, Jira) after your approval.
+
+```
+Reddit/Twitter → AI Classification → Draft Tickets → Review Queue → Linear/Jira
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Quick Start
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Set up environment variables
+cp .env.example .env.local
 
-## Learn More
+# Run development server
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+# Required
+OPENAI_API_KEY=sk-...
 
-## Deploy on Vercel
+# Optional - Twitter/X integration
+TWITTER_BEARER_TOKEN=...
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Optional - Ticket destinations
+LINEAR_API_KEY=...
+JIRA_API_TOKEN=...
+JIRA_EMAIL=...
+JIRA_DOMAIN=...
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Features
+
+- **Multi-source ingestion** - Pull feedback from Reddit, Twitter/X
+- **AI classification** - Categorize as bug, feature request, complaint, etc.
+- **Smart prioritization** - Urgent/high/medium/low based on sentiment and keywords
+- **Ticket drafting** - AI generates title, description, and labels
+- **Review queue** - Approve, edit, or reject before sending
+- **PM integrations** - Push approved tickets to Linear or Jira
+
+## Stack
+
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS
+- Zustand (state management)
+- OpenAI GPT-4o-mini (classification + drafting)
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── dashboard/
+│   │   ├── page.tsx        # Main dashboard with AI chat
+│   │   ├── data/           # Data sources overview
+│   │   └── review/         # Ticket review queue
+│   └── api/
+│       ├── chat/           # AI conversation endpoint
+│       └── pipeline/       # Ingest, classify, draft APIs
+├── lib/
+│   ├── pipeline/           # Core pipeline logic
+│   │   ├── classifier.ts   # AI classification
+│   │   ├── drafter.ts      # AI ticket drafting
+│   │   └── normalizer.ts   # Data normalization
+│   ├── sources/            # Data source integrations
+│   └── stores/             # Zustand stores
+└── types/
+    └── pipeline.ts         # Type definitions
+```
+
+## License
+
+MIT

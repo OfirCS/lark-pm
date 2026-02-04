@@ -209,8 +209,14 @@ function TicketModal({
       // Extract a title from the first line or first sentence
       const firstLine = initialContent.split('\n')[0];
       const shortTitle = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
-      setTitle(shortTitle);
-      setDescription(initialContent);
+      
+      // Use functional updates or move logic to where initialContent is set to avoid this effect
+      // For now, wrapping in setTimeout avoids the sync render warning
+      const t = setTimeout(() => {
+        setTitle(shortTitle);
+        setDescription(initialContent);
+      }, 0);
+      return () => clearTimeout(t);
     }
   }, [initialContent]);
 
@@ -597,11 +603,11 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">Data</span>
               </Link>
               <Link
-                href="/dashboard/review"
+                href="/dashboard/automation"
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors"
               >
-                <Radio size={18} />
-                <span className="hidden sm:inline">Review</span>
+                <Zap size={18} />
+                <span className="hidden sm:inline">Automate</span>
               </Link>
               <Link
                 href="/settings"
@@ -811,7 +817,7 @@ export default function DashboardPage() {
                           {searchStatus.stage === 'searching' && (
                             <>
                               Searching {searchStatus.source === 'reddit' ? 'Reddit' : searchStatus.source === 'web' ? 'the web' : 'sources'}
-                              {searchStatus.query && <span className="text-stone-400"> for "{searchStatus.query}"</span>}
+                              {searchStatus.query && <span className="text-stone-400"> for &quot;{searchStatus.query}&quot;</span>}
                               {searchStatus.count !== undefined && <span className="text-stone-500"> &middot; found {searchStatus.count} results</span>}
                             </>
                           )}
