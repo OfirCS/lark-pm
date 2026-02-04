@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Logo, LarkIcon } from '@/components/ui/Logo';
 import { useReviewStore } from '@/lib/stores/reviewStore';
+import { useCompanyStore } from '@/lib/stores/companyStore';
 
 // Message type
 interface Message {
@@ -91,7 +92,8 @@ async function streamChatResponse(
   onChunk: (chunk: string) => void,
   onDone: () => void,
   onError: (error: string) => void,
-  onSearchStatus?: (status: SearchStatus) => void
+  onSearchStatus?: (status: SearchStatus) => void,
+  productName?: string
 ) {
   try {
     const response = await fetch('/api/chat', {
@@ -99,6 +101,7 @@ async function streamChatResponse(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [{ role: 'user', content: query }],
+        productName, // Pass company product name for context
       }),
     });
 
@@ -526,6 +529,10 @@ export default function DashboardPage() {
   const reviewStats = useReviewStore(state => state.getStats());
   const totalDrafts = useReviewStore(state => state.drafts.length);
 
+  // Company context for personalized search
+  const company = useCompanyStore(state => state.company);
+  const productName = company.productName;
+
   // Calculate real stats
   const stats = {
     mentions: totalDrafts, // Total items collected
@@ -624,7 +631,8 @@ export default function DashboardPage() {
       },
       (status) => {
         setSearchStatus(status);
-      }
+      },
+      productName // Pass company name for personalized search
     );
   };
 

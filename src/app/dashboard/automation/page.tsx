@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Upload,
@@ -23,6 +23,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { useCompanyStore, getCompanyContextForAI } from '@/lib/stores/companyStore';
 
 // Types
 interface AnalyzedItem {
@@ -76,6 +77,9 @@ export default function AutomationPage() {
   const [runResult, setRunResult] = useState<{ ticketsCreated: number; slackSent: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Company context for personalized analysis
+  const company = useCompanyStore(state => state.company);
+
   // Config state
   const [config, setConfig] = useState({
     productContext: '',
@@ -97,6 +101,14 @@ export default function AutomationPage() {
       mentionOnUrgent: '',
     },
   });
+
+  // Initialize productContext from company store
+  useEffect(() => {
+    const companyContext = getCompanyContextForAI();
+    if (companyContext && !config.productContext) {
+      setConfig(prev => ({ ...prev, productContext: companyContext }));
+    }
+  }, [company.productName]);
 
   // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

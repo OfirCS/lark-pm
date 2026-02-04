@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useReviewStore, createDraftFromFeedback } from '@/lib/stores/reviewStore';
+import { useCompanyStore } from '@/lib/stores/companyStore';
 import { normalizeRedditPosts, normalizeTweets } from '@/lib/pipeline/normalizer';
 import type { RedditPost } from '@/lib/sources/reddit';
 import type { Tweet } from '@/lib/sources/twitter';
@@ -238,26 +239,34 @@ export default function DataPage() {
   const [scanStatus, setScanStatus] = useState('');
 
   const { drafts, addDraft, getStats, getPendingCount } = useReviewStore();
+  const { company, getRedditSearchTerms, getTwitterSearchTerms } = useCompanyStore();
   const stats = getStats();
+
+  // Get company-specific search terms
+  const productName = company.productName || 'product';
+  const subreddits = company.subreddits.length > 0 ? company.subreddits : ['SaaS', 'startups', 'ProductManagement'];
+  const redditSearchTerms = getRedditSearchTerms();
+  const twitterSearchTerms = getTwitterSearchTerms();
 
   // Scan sources and run pipeline
   const handleScan = async () => {
     setIsScanning(true);
-    setScanStatus('Searching Reddit...');
+    setScanStatus(`Searching for "${productName}" feedback...`);
 
     try {
       // Search Reddit via API route (to avoid CORS)
-      const subreddits = ['SaaS', 'startups', 'ProductManagement'];
+      // Use company-specific search terms
+      const searchQuery = redditSearchTerms[0] || `${productName} feedback`;
 
-      for (const subreddit of subreddits) {
-        setScanStatus(`Searching r/${subreddit}...`);
+      for (const subreddit of subreddits.slice(0, 4)) {
+        setScanStatus(`Searching r/${subreddit} for "${searchQuery}"...`);
 
         try {
           const response = await fetch('/api/sources/reddit/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              query: 'saas feedback',
+              query: searchQuery,
               subreddit,
               limit: 5,
               time: 'week',
@@ -297,7 +306,10 @@ export default function DataPage() {
 
       // Search Twitter/X via API route
       setScanStatus('Searching Twitter/X...');
-      const twitterQueries = ['product feedback', 'customer feedback', 'feature request'];
+      // Use company-specific Twitter search terms
+      const twitterQueries = twitterSearchTerms.length > 0
+        ? twitterSearchTerms.slice(0, 3)
+        : [`${productName} feedback`, `${productName} review`];
 
       for (const query of twitterQueries) {
         setScanStatus(`Searching Twitter for "${query}"...`);

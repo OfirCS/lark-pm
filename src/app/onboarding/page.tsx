@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ArrowLeft, Check, Sparkles, Radio, Zap, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, Sparkles, Radio, Zap, Loader2, Plus, X } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { useCompanyStore } from '@/lib/stores/companyStore';
 
 // Data sources to monitor
 const dataSources = [
@@ -21,12 +22,20 @@ const integrations = [
   { id: 'notion', name: 'Notion', emoji: '📝', desc: 'Knowledge Base' },
 ];
 
+// Default subreddits by industry
+const defaultSubreddits = ['SaaS', 'startups', 'ProductManagement', 'Entrepreneur', 'smallbusiness'];
+
 export default function OnboardingPage() {
   const router = useRouter();
+  const { setProductName, setEnabledSources, setSelectedIntegrations, setSubreddits, setCompetitors, completeOnboarding } = useCompanyStore();
+
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [competitorInput, setCompetitorInput] = useState('');
   const [data, setData] = useState({
     productName: '',
+    productDescription: '',
+    competitors: [] as string[],
     sources: ['reddit', 'twitter'] as string[],
     integrations: [] as string[],
   });
@@ -38,9 +47,35 @@ export default function OnboardingPage() {
       setStep(step + 1);
     } else {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Save all data to the company store
+      setProductName(data.productName);
+      setEnabledSources(data.sources);
+      setSelectedIntegrations(data.integrations);
+      setCompetitors(data.competitors);
+      setSubreddits(defaultSubreddits);
+      completeOnboarding();
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
       router.push('/dashboard');
     }
+  };
+
+  const addCompetitor = () => {
+    if (competitorInput.trim() && !data.competitors.includes(competitorInput.trim())) {
+      setData(prev => ({
+        ...prev,
+        competitors: [...prev.competitors, competitorInput.trim()]
+      }));
+      setCompetitorInput('');
+    }
+  };
+
+  const removeCompetitor = (comp: string) => {
+    setData(prev => ({
+      ...prev,
+      competitors: prev.competitors.filter(c => c !== comp)
+    }));
   };
 
   const handleBack = () => {
@@ -116,21 +151,63 @@ export default function OnboardingPage() {
                   What are we building?
                 </h1>
                 <p className="text-stone-500 text-lg mb-8 leading-relaxed">
-                  Tell us your product&apos;s name. Lark will start listening for customer feedback immediately.
+                  Tell us about your product. Lark will search for relevant feedback across all channels.
                 </p>
 
-                <div className="relative">
-                    <input
+                <div className="space-y-4">
+                  {/* Product Name */}
+                  <div className="relative">
+                      <input
+                          type="text"
+                          value={data.productName}
+                          onChange={(e) => setData({ ...data, productName: e.target.value })}
+                          placeholder="Your product name (e.g. Notion, Linear)"
+                          autoFocus
+                          className="w-full px-5 py-4 bg-white border border-stone-200 rounded-xl text-lg placeholder:text-stone-300 focus:outline-none focus:border-stone-900 focus:ring-4 focus:ring-stone-100 transition-all shadow-sm"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                          {data.productName.length > 0 && <Check size={20} className="text-emerald-500 animate-in fade-in zoom-in" />}
+                      </div>
+                  </div>
+
+                  {/* Competitors */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-600 mb-2">
+                      Competitors to track (optional)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
                         type="text"
-                        value={data.productName}
-                        onChange={(e) => setData({ ...data, productName: e.target.value })}
-                        placeholder="e.g. Acme Corp"
-                        autoFocus
-                        className="w-full px-6 py-5 bg-white border border-stone-200 rounded-2xl text-xl placeholder:text-stone-300 focus:outline-none focus:border-stone-900 focus:ring-4 focus:ring-stone-100 transition-all shadow-sm"
-                    />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                        {data.productName.length > 0 && <Check size={20} className="text-emerald-500 animate-in fade-in zoom-in" />}
+                        value={competitorInput}
+                        onChange={(e) => setCompetitorInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
+                        placeholder="Add a competitor"
+                        className="flex-1 px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={addCompetitor}
+                        className="px-4 py-3 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                      >
+                        <Plus size={18} className="text-stone-600" />
+                      </button>
                     </div>
+                    {data.competitors.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {data.competitors.map(comp => (
+                          <span key={comp} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm">
+                            {comp}
+                            <button onClick={() => removeCompetitor(comp)} className="hover:text-red-500">
+                              <X size={14} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-stone-400 mt-2">
+                      We&apos;ll find feedback comparing you to these competitors
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
