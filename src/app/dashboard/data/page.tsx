@@ -20,8 +20,9 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useReviewStore, createDraftFromFeedback } from '@/lib/stores/reviewStore';
-import { searchReddit, formatRedditPostsForContext } from '@/lib/sources/reddit';
-import { normalizeRedditPosts } from '@/lib/pipeline/normalizer';
+import { normalizeRedditPosts, normalizeTweets } from '@/lib/pipeline/normalizer';
+import type { RedditPost } from '@/lib/sources/reddit';
+import type { Tweet } from '@/lib/sources/twitter';
 import { classifyFeedback } from '@/lib/pipeline/classifier';
 import { draftTicket } from '@/lib/pipeline/drafter';
 import type { DraftedTicket, FeedbackItem } from '@/types/pipeline';
@@ -245,24 +246,36 @@ export default function DataPage() {
     setScanStatus('Searching Reddit...');
 
     try {
-      // Search Reddit
-      const queries = ['saas feedback', 'product feedback', 'startup'];
+      // Search Reddit via API route (to avoid CORS)
       const subreddits = ['SaaS', 'startups', 'ProductManagement'];
 
       for (const subreddit of subreddits) {
         setScanStatus(`Searching r/${subreddit}...`);
 
         try {
-          const result = await searchReddit(queries[0], {
-            subreddit,
-            limit: 5,
-            time: 'week',
+          const response = await fetch('/api/sources/reddit/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: 'saas feedback',
+              subreddit,
+              limit: 5,
+              time: 'week',
+            }),
           });
 
-          if (result.posts.length > 0) {
-            setScanStatus(`Found ${result.posts.length} posts in r/${subreddit}, classifying...`);
+          if (!response.ok) {
+            console.error(`Reddit API error for r/${subreddit}`);
+            continue;
+          }
 
-            const feedbackItems = normalizeRedditPosts(result.posts);
+          const result = await response.json();
+          const posts = result.posts as RedditPost[];
+
+          if (posts.length > 0) {
+            setScanStatus(`Found ${posts.length} posts in r/${subreddit}, classifying...`);
+
+            const feedbackItems = normalizeRedditPosts(posts);
 
             // Classify and draft each item
             for (const item of feedbackItems.slice(0, 3)) {
@@ -279,6 +292,52 @@ export default function DataPage() {
           }
         } catch (error) {
           console.error(`Error scanning r/${subreddit}:`, error);
+        }
+      }
+
+      // Search Twitter/X via API route
+      setScanStatus('Searching Twitter/X...');
+      const twitterQueries = ['product feedback', 'customer feedback', 'feature request'];
+
+      for (const query of twitterQueries) {
+        setScanStatus(`Searching Twitter for "${query}"...`);
+
+        try {
+          const response = await fetch('/api/sources/twitter/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, maxResults: 10 }),
+          });
+
+          if (!response.ok) {
+            console.error(`Twitter API error for "${query}"`);
+            continue;
+          }
+
+          const result = await response.json();
+          const tweets = result.tweets as Tweet[];
+
+          if (tweets && tweets.length > 0) {
+            setScanStatus(`Found ${tweets.length} tweets, classifying...`);
+
+            const feedbackItems = normalizeTweets(tweets);
+
+            // Classify and draft each item (limit to 3 per query)
+            for (const item of feedbackItems.slice(0, 3)) {
+              setScanStatus(`Classifying tweet: ${item.content.slice(0, 30)}...`);
+
+              const classification = await classifyFeedback(item);
+
+              setScanStatus(`Drafting ticket...`);
+              const draft = await draftTicket(item, classification);
+
+              const draftedTicket = createDraftFromFeedback(item, classification, draft);
+              addDraft(draftedTicket);
+            }
+          }
+        } catch (error) {
+          console.error(`Error scanning Twitter for "${query}":`, error);
+          // Continue if Twitter API is not configured
         }
       }
 

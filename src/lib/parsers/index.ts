@@ -1,6 +1,8 @@
 // File parsers for different formats
 // Supports: CSV, Excel, PDF, TXT, JSON
 
+import * as XLSX from 'xlsx';
+
 export interface ParsedFeedback {
   id: string;
   content: string;
@@ -183,6 +185,94 @@ export function parseTXT(content: string, fileName: string): ParseResult {
   }
 }
 
+// Parse Excel file (xlsx, xls)
+export function parseExcel(buffer: ArrayBuffer, fileName: string): ParseResult {
+  try {
+    const workbook = XLSX.read(buffer, { type: 'array' });
+
+    // Get first sheet
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    // Convert to JSON
+    const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+
+    if (data.length === 0) {
+      return { success: false, items: [], error: 'Excel file is empty', fileName, fileType: 'excel', totalRows: 0 };
+    }
+
+    // Get headers from first row
+    const headers = Object.keys(data[0]).map(h => h.toLowerCase());
+
+    // Find content column
+    const contentCol = ['feedback', 'comment', 'text', 'content', 'message', 'description', 'review', 'body']
+      .find(f => headers.includes(f));
+
+    // Find optional columns
+    const authorCol = ['author', 'user', 'name', 'customer', 'email', 'username']
+      .find(f => headers.includes(f));
+    const dateCol = ['date', 'created', 'timestamp', 'time', 'created_at', 'submitted']
+      .find(f => headers.includes(f));
+    const sourceCol = ['source', 'channel', 'platform', 'origin']
+      .find(f => headers.includes(f));
+
+    const items: ParsedFeedback[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+
+      // Find content using various possible column names
+      let content: string | undefined;
+      if (contentCol) {
+        const value = Object.entries(row).find(([key]) => key.toLowerCase() === contentCol)?.[1];
+        content = value?.toString();
+      } else {
+        // Use first text column
+        const firstTextValue = Object.values(row).find(v => typeof v === 'string' && v.length > 10);
+        content = firstTextValue?.toString();
+      }
+
+      if (!content) continue;
+
+      const getColValue = (colName: string | undefined): string | undefined => {
+        if (!colName) return undefined;
+        const entry = Object.entries(row).find(([key]) => key.toLowerCase() === colName);
+        return entry?.[1]?.toString();
+      };
+
+      items.push({
+        id: `excel-${i}`,
+        content,
+        source: getColValue(sourceCol) || `file:${fileName}`,
+        author: getColValue(authorCol),
+        date: getColValue(dateCol),
+        metadata: row,
+      });
+    }
+
+    return { success: true, items, fileName, fileType: 'excel', totalRows: items.length };
+  } catch (error) {
+    return {
+      success: false,
+      items: [],
+      error: error instanceof Error ? error.message : 'Failed to parse Excel file',
+      fileName,
+      fileType: 'excel',
+      totalRows: 0
+    };
+  }
+}
+
+// Parse Excel from base64 string
+export function parseExcelFromBase64(base64: string, fileName: string): ParseResult {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return parseExcel(bytes.buffer, fileName);
+}
+
 // Main parser function - auto-detect format
 export function parseFile(content: string, fileName: string, mimeType?: string): ParseResult {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -200,6 +290,12 @@ export function parseFile(content: string, fileName: string, mimeType?: string):
     return parseTXT(content, fileName);
   }
 
+  // Excel files need special handling (binary)
+  if (ext === 'xlsx' || ext === 'xls' || mimeType?.includes('spreadsheet')) {
+    // For Excel, content should be base64 encoded
+    return parseExcelFromBase64(content, fileName);
+  }
+
   // Try to auto-detect
   const trimmed = content.trim();
   if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
@@ -212,4 +308,19 @@ export function parseFile(content: string, fileName: string, mimeType?: string):
 
   // Default to plain text
   return parseTXT(content, fileName);
+}
+
+// Parse file from ArrayBuffer (for binary files like Excel)
+export function parseFileBuffer(buffer: ArrayBuffer, fileName: string, mimeType?: string): ParseResult {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+
+  // Excel files
+  if (ext === 'xlsx' || ext === 'xls' || mimeType?.includes('spreadsheet') || mimeType?.includes('excel')) {
+    return parseExcel(buffer, fileName);
+  }
+
+  // For text-based files, convert buffer to string
+  const decoder = new TextDecoder('utf-8');
+  const content = decoder.decode(buffer);
+  return parseFile(content, fileName, mimeType);
 }

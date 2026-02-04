@@ -85,15 +85,28 @@ const TOOLS = [
   { id: 'intercom', name: 'Intercom', type: 'Support', desc: 'Analyze support tickets', icon: '🔷', color: '#1F8CED', canCreateTickets: false },
 ];
 
+// OAuth URLs for each integration
+const OAUTH_URLS: Record<string, string> = {
+  linear: '/api/integrations/linear/auth',
+  github: '/api/integrations/github/auth',
+  slack: '/api/integrations/slack/auth',
+  jira: '/api/integrations/jira/auth', // Not implemented yet
+  notion: '/api/integrations/notion/auth', // Not implemented yet
+  zoom: '/api/integrations/zoom/auth', // Not implemented yet
+  intercom: '/api/integrations/intercom/auth', // Not implemented yet
+};
+
 // Integration card component
 function IntegrationCard({
   tool,
   connected,
   onToggle,
+  onConnect,
 }: {
   tool: typeof TOOLS[0];
   connected: boolean;
   onToggle: () => void;
+  onConnect?: () => void;
 }) {
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -103,11 +116,20 @@ function IntegrationCard({
       return;
     }
 
+    // Check if we have an OAuth URL for this integration
+    const oauthUrl = OAUTH_URLS[tool.id];
+    if (oauthUrl && ['linear', 'github', 'slack'].includes(tool.id)) {
+      // Redirect to OAuth flow
+      window.location.href = oauthUrl;
+      return;
+    }
+
+    // For integrations without OAuth yet, use the mock flow
     setIsConnecting(true);
-    // Simulate OAuth flow
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsConnecting(false);
     onToggle();
+    if (onConnect) onConnect();
   };
 
   return (
@@ -223,17 +245,78 @@ function SettingsContent() {
     github: false,
     jira: false,
     notion: false,
-    slack: true,
+    slack: false,
     zoom: false,
     intercom: false,
   });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Set initial tab from URL parameter
+  // Check for OAuth success/error in URL params and fetch integration status
   useEffect(() => {
     const tab = searchParams.get('tab');
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+
     if (tab && ['integrations', 'workflows', 'profile', 'notifications'].includes(tab)) {
       setTimeout(() => setActiveTab(tab), 0);
     }
+
+    if (success) {
+      const platformName = success.charAt(0).toUpperCase() + success.slice(1);
+      setSuccessMessage(`${platformName} connected successfully!`);
+      setIntegrations(prev => ({ ...prev, [success]: true }));
+      // Clear the URL params
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+      // Auto-hide success message
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        linear_denied: 'Linear authorization was denied',
+        linear_no_code: 'Linear authorization failed - no code received',
+        linear_state_mismatch: 'Linear authorization failed - security error',
+        linear_token_failed: 'Failed to connect to Linear',
+        linear_failed: 'An error occurred connecting to Linear',
+        linear_not_configured: 'Linear OAuth not configured - add LINEAR_CLIENT_ID to .env.local',
+        github_denied: 'GitHub authorization was denied',
+        github_no_code: 'GitHub authorization failed - no code received',
+        github_state_mismatch: 'GitHub authorization failed - security error',
+        github_token_failed: 'Failed to connect to GitHub',
+        github_failed: 'An error occurred connecting to GitHub',
+        github_not_configured: 'GitHub OAuth not configured - add GITHUB_CLIENT_ID to .env.local',
+        slack_denied: 'Slack authorization was denied',
+        slack_no_code: 'Slack authorization failed - no code received',
+        slack_state_mismatch: 'Slack authorization failed - security error',
+        slack_token_failed: 'Failed to connect to Slack',
+        slack_failed: 'An error occurred connecting to Slack',
+        slack_not_configured: 'Slack OAuth not configured - add SLACK_CLIENT_ID to .env.local',
+        no_org: 'No organization found for your account',
+      };
+      setErrorMessage(errorMessages[error] || 'An error occurred');
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+
+    // Fetch actual integration status from API
+    const fetchIntegrationStatus = async () => {
+      try {
+        const response = await fetch('/api/integrations/status');
+        if (response.ok) {
+          const data = await response.json();
+          const status: Record<string, boolean> = {};
+          for (const [platform, info] of Object.entries(data.integrations)) {
+            status[platform] = (info as { connected: boolean }).connected;
+          }
+          setIntegrations(prev => ({ ...prev, ...status }));
+        }
+      } catch {
+        // Silently fail - user might not be authenticated or DB not set up
+      }
+    };
+
+    fetchIntegrationStatus();
   }, [searchParams]);
 
   const [workflows, setWorkflows] = useState({
@@ -315,10 +398,30 @@ function SettingsContent() {
           {/* Integrations Tab */}
           {activeTab === 'integrations' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Success Message */}
+              {successMessage && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <Check size={16} className="text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-medium text-emerald-800">{successMessage}</p>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="text-red-600 text-lg">!</span>
+                  </div>
+                  <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+                </div>
+              )}
+
               <div className="mb-8">
                 <h2 className="text-lg font-medium text-stone-900 mb-2">Connect Your Stack</h2>
                 <p className="text-stone-500 text-sm max-w-2xl">
-                    Lark acts as the connective tissue between your customer feedback and your product roadmap. 
+                    Lark acts as the connective tissue between your customer feedback and your product roadmap.
                     Connect the tools you use daily.
                 </p>
               </div>

@@ -160,3 +160,116 @@ export function getSlackOAuthUrl(
 
   return `https://slack.com/oauth/v2/authorize?${params}`;
 }
+
+// Build a notification message for urgent feedback
+export function buildFeedbackAlertMessage(feedback: {
+  content: string;
+  source: string;
+  sentiment: string;
+  priority: string;
+  url?: string;
+}): { text: string; blocks: unknown[] } {
+  const priorityEmoji: Record<string, string> = {
+    urgent: ':rotating_light:',
+    high: ':warning:',
+    medium: ':large_blue_circle:',
+    low: ':white_circle:',
+  };
+
+  const sentimentEmoji: Record<string, string> = {
+    negative: ':rage:',
+    neutral: ':neutral_face:',
+    positive: ':smile:',
+  };
+
+  const pEmoji = priorityEmoji[feedback.priority] || ':white_circle:';
+  const sEmoji = sentimentEmoji[feedback.sentiment] || ':neutral_face:';
+
+  const text = `${pEmoji} New ${feedback.priority} priority feedback from ${feedback.source}`;
+
+  const blocks = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: `${pEmoji} ${feedback.priority.charAt(0).toUpperCase() + feedback.priority.slice(1)} Priority Feedback`,
+        emoji: true,
+      },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Source:* ${feedback.source}\n*Sentiment:* ${sEmoji} ${feedback.sentiment}`,
+      },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `> ${feedback.content.slice(0, 500)}${feedback.content.length > 500 ? '...' : ''}`,
+      },
+    },
+  ];
+
+  if (feedback.url) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `<${feedback.url}|View Original>`,
+      },
+    });
+  }
+
+  return { text, blocks };
+}
+
+// Build a daily digest message
+export function buildDigestMessage(stats: {
+  total: number;
+  urgent: number;
+  high: number;
+  ticketsCreated: number;
+  topThemes: string[];
+}): { text: string; blocks: unknown[] } {
+  const text = `Lark Daily Digest: ${stats.total} new feedback items`;
+
+  const blocks = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: ':bird: Lark Daily Digest',
+        emoji: true,
+      },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${stats.total}* new feedback items today\n:rotating_light: *${stats.urgent}* urgent  |  :warning: *${stats.high}* high priority`,
+      },
+    },
+  ];
+
+  if (stats.topThemes.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Top Themes:*\n${stats.topThemes.map(t => `• ${t}`).join('\n')}`,
+      },
+    });
+  }
+
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*${stats.ticketsCreated}* tickets created automatically`,
+    },
+  });
+
+  return { text, blocks };
+}

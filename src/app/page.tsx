@@ -2,15 +2,19 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { 
-  ArrowRight, 
-  Menu, 
+import {
+  ArrowRight,
+  Menu,
   X,
   MessageSquare,
   BarChart3,
   Zap,
   Check,
   TrendingUp,
+  Sparkles,
+  AlertTriangle,
+  TrendingDown,
+  Target,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 
@@ -254,6 +258,108 @@ function Feature2() {
   );
 }
 
+function Predictions() {
+  const predictions = [
+    {
+      icon: AlertTriangle,
+      title: 'Churn Risk Alert',
+      description: '3 enterprise accounts showing frustration signals',
+      metric: '$180k ARR at risk',
+      color: 'rose',
+    },
+    {
+      icon: TrendingUp,
+      title: 'Feature Opportunity',
+      description: 'Mobile app demand increased 340% this quarter',
+      metric: '89 mentions',
+      color: 'emerald',
+    },
+    {
+      icon: TrendingDown,
+      title: 'Sentiment Shift',
+      description: 'Onboarding complaints down 45% after v2.1',
+      metric: 'Improving',
+      color: 'blue',
+    },
+    {
+      icon: Target,
+      title: 'Competitor Intel',
+      description: 'Users switching from Acme cite "better API"',
+      metric: '12 mentions',
+      color: 'amber',
+    },
+  ];
+
+  return (
+    <section id="features" className="py-24 bg-white border-t border-stone-100">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-20 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium mb-6">
+              <Sparkles size={14} /> AI-Powered
+            </div>
+            <h2 className="font-serif text-4xl text-stone-900 mb-6">Predict what&apos;s next.</h2>
+            <p className="text-lg text-stone-600 mb-8 leading-relaxed">
+              Lark analyzes patterns across your feedback to surface churn risks, feature opportunities, and market shifts before they become obvious.
+            </p>
+            <ul className="space-y-3">
+              {['Churn prediction from sentiment trends', 'Feature demand forecasting', 'Competitor mention tracking', 'Revenue impact scoring'].map(i => (
+                <li key={i} className="flex items-center gap-3 text-stone-700 text-sm font-medium">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><Check size={12} /></div>
+                  {i}
+                </li>
+              ))}
+            </ul>
+            <Link href="/predictions" className="inline-flex items-center gap-2 mt-8 text-sm font-medium text-stone-900 hover:text-stone-600 transition-colors">
+              See predictions in action <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          {/* Visual: Predictions Dashboard */}
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl p-2 rotate-1 hover:rotate-0 transition-transform duration-500">
+            <div className="bg-stone-50 rounded-xl border border-stone-100 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-indigo-600" />
+                  <span className="text-sm font-semibold text-stone-900">AI Predictions</span>
+                </div>
+                <span className="text-xs text-stone-400">Updated 2h ago</span>
+              </div>
+              <div className="space-y-3">
+                {predictions.map((pred, i) => {
+                  const colorStyles = {
+                    rose: 'bg-rose-50 text-rose-600 border-rose-100',
+                    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                    blue: 'bg-blue-50 text-blue-600 border-blue-100',
+                    amber: 'bg-amber-50 text-amber-600 border-amber-100',
+                  };
+                  const Icon = pred.icon;
+                  return (
+                    <div key={i} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${colorStyles[pred.color as keyof typeof colorStyles]}`}>
+                          <Icon size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-medium text-sm text-stone-900">{pred.title}</h4>
+                            <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded whitespace-nowrap">{pred.metric}</span>
+                          </div>
+                          <p className="text-xs text-stone-500 mt-0.5">{pred.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Pricing() {
   const [isAnnual, setIsAnnual] = useState(true);
 
@@ -452,6 +558,7 @@ export default function LandingPage() {
       <Hero />
       <Feature1 />
       <Feature2 />
+      <Predictions />
       <Pricing />
       <CTA />
       <Footer />
