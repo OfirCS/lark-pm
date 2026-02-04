@@ -1,361 +1,431 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft,
+  LayoutGrid,
+  List,
+  Filter,
+  Search,
   RefreshCw,
-  Inbox,
-  AlertTriangle,
-  Loader2,
-  Plus,
-  Zap,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  XCircle,
+  ArrowRight,
 } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
-import { ReviewCard } from '@/components/review/ReviewCard';
-import { ReviewFilters, BulkActions } from '@/components/review/ReviewFilters';
-import { useReviewStore, createDraftFromFeedback } from '@/lib/stores/reviewStore';
-import type { DraftedTicket, FeedbackItem, ClassificationResult } from '@/types/pipeline';
+import { KanbanColumn, KanbanCard } from '@/components/kanban';
+import { cn } from '@/lib/utils';
 
-export default function ReviewQueuePage() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [editingDraft, setEditingDraft] = useState<DraftedTicket | null>(null);
+// Types
+interface Ticket {
+  id: string;
+  title: string;
+  source: string;
+  sourceIcon: string;
+  category: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low';
+  sentiment: 'positive' | 'negative' | 'neutral';
+  engagementScore: number;
+  excerpt: string;
+  status: 'inbox' | 'reviewing' | 'approved' | 'rejected';
+}
 
-  // Store state
-  const {
-    drafts,
-    filters,
-    selectedIds,
-    setFilters,
-    clearFilters,
-    selectDraft,
-    deselectDraft,
-    selectAll,
-    deselectAll,
-    approveDraft,
-    rejectDraft,
-    bulkApprove,
-    bulkReject,
-    getFilteredDrafts,
-    getStats,
-    getPendingCount,
-    getUrgentCount,
-    addDraft,
-  } = useReviewStore();
+// Mock data
+const mockTickets: Ticket[] = [
+  {
+    id: '1',
+    title: 'SSO/SAML Authentication for Enterprise',
+    source: 'Reddit r/SaaS',
+    sourceIcon: '🔴',
+    category: 'feature_request',
+    priority: 'urgent',
+    sentiment: 'positive',
+    engagementScore: 94,
+    excerpt: 'We love the product but IT requires SSO before we can deploy to 500+ employees. This is blocking our rollout.',
+    status: 'inbox',
+  },
+  {
+    id: '2',
+    title: 'API Rate Limiting Issues',
+    source: 'Twitter',
+    sourceIcon: '🐦',
+    category: 'bug',
+    priority: 'high',
+    sentiment: 'negative',
+    engagementScore: 78,
+    excerpt: 'Getting 429 errors constantly. Our integration is basically unusable right now.',
+    status: 'inbox',
+  },
+  {
+    id: '3',
+    title: 'Dark Mode Support',
+    source: 'Slack #feedback',
+    sourceIcon: '💬',
+    category: 'feature_request',
+    priority: 'medium',
+    sentiment: 'positive',
+    engagementScore: 65,
+    excerpt: 'Would love to have dark mode for late night work sessions.',
+    status: 'inbox',
+  },
+  {
+    id: '4',
+    title: 'Mobile App for iOS/Android',
+    source: 'Support Ticket',
+    sourceIcon: '🎫',
+    category: 'feature_request',
+    priority: 'high',
+    sentiment: 'positive',
+    engagementScore: 87,
+    excerpt: 'Customers asking for mobile access to check dashboards on the go.',
+    status: 'reviewing',
+  },
+  {
+    id: '5',
+    title: 'Onboarding Flow Confusion',
+    source: 'Twitter',
+    sourceIcon: '🐦',
+    category: 'complaint',
+    priority: 'medium',
+    sentiment: 'negative',
+    engagementScore: 54,
+    excerpt: 'The setup wizard is confusing. Took me 20 minutes to figure out.',
+    status: 'reviewing',
+  },
+  {
+    id: '6',
+    title: 'Salesforce Integration',
+    source: 'Reddit r/SaaS',
+    sourceIcon: '🔴',
+    category: 'feature_request',
+    priority: 'urgent',
+    sentiment: 'positive',
+    engagementScore: 89,
+    excerpt: 'Direct Salesforce sync would save us hours of manual work every week.',
+    status: 'approved',
+  },
+  {
+    id: '7',
+    title: 'Export to CSV/PDF',
+    source: 'Slack #feedback',
+    sourceIcon: '💬',
+    category: 'feature_request',
+    priority: 'low',
+    sentiment: 'neutral',
+    engagementScore: 42,
+    excerpt: 'Need ability to export reports for stakeholder meetings.',
+    status: 'rejected',
+  },
+];
 
-  const filteredDrafts = getFilteredDrafts();
-  const stats = getStats();
-  const pendingCount = getPendingCount();
-  const urgentCount = getUrgentCount();
-
-  // Pending items only for bulk actions
-  const pendingFilteredDrafts = filteredDrafts.filter(
-    (d) => d.status === 'pending' || d.status === 'edited'
-  );
-
-  // Handle refresh / ingest
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const response = await fetch('/api/pipeline/ingest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sources: ['reddit', 'twitter'],
-          queries: ['saas', 'startup', 'product feedback'],
-        }),
-      });
-      // Pipeline will add items to store via notifications
-    } catch (error) {
-      console.error('Refresh failed:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Handle approve
-  const handleApprove = async (id: string, platform: 'linear' | 'jira') => {
-    const draft = drafts.find((d) => d.id === id);
-    if (!draft) return;
-
-    try {
-      // Call tickets API to create in platform
-      const response = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          platform,
-          ticket: {
-            title: draft.editedDraft?.title || draft.draft.title,
-            description: draft.editedDraft?.description || draft.draft.description,
-            priority: draft.editedDraft?.priority || draft.draft.suggestedPriority,
-            labels: draft.editedDraft?.labels || draft.draft.suggestedLabels,
-            source: {
-              type: draft.feedbackItem.source,
-              url: draft.feedbackItem.sourceUrl,
-            },
-          },
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        approveDraft(id, platform, {
-          ticketId: result.ticketId,
-          ticketUrl: result.ticketUrl,
-        });
-      } else {
-        // Still mark as approved but note the error
-        approveDraft(id, platform);
-        console.error('Ticket creation failed:', result.error);
-      }
-    } catch (error) {
-      console.error('Approve failed:', error);
-      // Mark as approved anyway for demo
-      approveDraft(id, platform);
-    }
-  };
-
-  // Handle reject
-  const handleReject = (id: string, reason?: string) => {
-    rejectDraft(id, reason);
-  };
-
-  // Handle edit
-  const handleEdit = (id: string) => {
-    const draft = drafts.find((d) => d.id === id);
-    if (draft) {
-      setEditingDraft(draft);
-    }
-  };
-
-  // Handle selection
-  const handleSelect = (id: string) => {
-    if (selectedIds.includes(id)) {
-      deselectDraft(id);
-    } else {
-      selectDraft(id);
-    }
-  };
-
-  // Add demo data for testing
-  const addDemoData = () => {
-    const demoFeedback: FeedbackItem = {
-      id: `fb_demo_${Date.now()}`,
-      source: 'reddit',
-      sourceId: 'demo123',
-      sourceUrl: 'https://reddit.com/r/SaaS/comments/demo',
-      title: 'Need SSO for enterprise deployment',
-      content:
-        'We love the product but our IT team requires SSO/SAML authentication before we can deploy to our 500+ employees. This is currently blocking our enterprise rollout. Any timeline on this feature?',
-      author: 'enterprise_user',
-      authorHandle: 'u/enterprise_user',
-      createdAt: new Date().toISOString(),
-      fetchedAt: new Date().toISOString(),
-      engagementScore: 85,
-      metadata: {
-        subreddit: 'SaaS',
-        replyCount: 23,
-      },
-    };
-
-    const demoClassification: ClassificationResult = {
-      category: 'feature_request',
-      confidence: 94,
-      priority: 'high',
-      priorityReasons: ['Enterprise customer', 'Revenue blocker', 'High engagement'],
-      sentiment: 'positive',
-      keywords: ['SSO', 'SAML', 'enterprise', 'authentication'],
-      customerSegment: 'enterprise',
-    };
-
-    const demoDraft = createDraftFromFeedback(demoFeedback, demoClassification, {
-      title: 'Add SSO/SAML Authentication for Enterprise',
-      description: `## Context
-A Reddit user (enterprise segment) is requesting SSO/SAML authentication, stating it's blocking their enterprise rollout to 500+ employees.
-
-## User Quote
-> "We love the product but our IT team requires SSO/SAML authentication before we can deploy to our 500+ employees."
-
-## Recommendation
-This is a high-priority feature request from an enterprise prospect. SSO is a common enterprise requirement and likely blocking multiple deals.
-
-## Source
-[Reddit r/SaaS](https://reddit.com/r/SaaS/comments/demo)`,
-      suggestedLabels: ['enterprise', 'auth', 'feature-request', 'high-priority'],
-      suggestedPriority: 'high',
-    });
-
-    addDraft(demoDraft);
+// Stats component
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  color: 'indigo' | 'amber' | 'emerald' | 'rose';
+}) {
+  const colorClasses = {
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    amber: 'bg-amber-50 text-amber-700 border-amber-100',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    rose: 'bg-rose-50 text-rose-700 border-rose-100',
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 relative">
-      {/* Texture */}
-      <div className="grain fixed inset-0 z-[100] pointer-events-none opacity-30" />
+    <div className={cn('flex items-center gap-3 p-4 rounded-xl border', colorClasses[color])}>
+      <div className="w-10 h-10 rounded-lg bg-white/50 flex items-center justify-center">
+        <Icon size={20} />
+      </div>
+      <div>
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-xs opacity-80">{label}</p>
+      </div>
+    </div>
+  );
+}
 
+export default function ReviewQueuePage() {
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filter tickets
+  const filteredTickets = tickets.filter(
+    (t) =>
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Group by status
+  const inboxTickets = filteredTickets.filter((t) => t.status === 'inbox');
+  const reviewingTickets = filteredTickets.filter((t) => t.status === 'reviewing');
+  const approvedTickets = filteredTickets.filter((t) => t.status === 'approved');
+  const rejectedTickets = filteredTickets.filter((t) => t.status === 'rejected');
+
+  // Handle refresh
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1500);
+  };
+
+  // Handle status change
+  const handleStatusChange = (ticketId: string, newStatus: Ticket['status']) => {
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
+    );
+  };
+
+  return (
+    <div className="space-y-6">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-stone-50/80 backdrop-blur-md border-b border-stone-200/50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors"
-              >
-                <ArrowLeft size={18} />
-              </Link>
-              <Logo size="sm" />
-              <div className="w-px h-6 bg-stone-200" />
-              <div>
-                <h1 className="text-lg font-medium text-stone-900">Review Queue</h1>
-                <p className="text-xs text-stone-500">
-                  {pendingCount} pending{urgentCount > 0 && ` • ${urgentCount} urgent`}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={addDemoData}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
-              >
-                <Plus size={16} />
-                Add Demo
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors disabled:opacity-50"
-              >
-                {isRefreshing ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={16} />
-                )}
-                Scan Sources
-              </button>
-            </div>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">Review Queue</h1>
+          <p className="text-sm text-stone-500">
+            Review, approve, and create tickets from customer feedback
+          </p>
         </div>
-      </header>
-
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-stone-900">{stats.total}</p>
-            <p className="text-xs text-stone-500">Total items</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-amber-600">{stats.pending}</p>
-            <p className="text-xs text-stone-500">Pending review</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-emerald-600">{stats.approved}</p>
-            <p className="text-xs text-stone-500">Approved</p>
-          </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-rose-600">
-              {stats.byPriority.urgent + stats.byPriority.high}
-            </p>
-            <p className="text-xs text-stone-500">High priority</p>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-4">
-          <ReviewFilters
-            filters={filters}
-            onFilterChange={setFilters}
-            onClearFilters={clearFilters}
-            stats={stats}
-          />
-        </div>
-
-        {/* Bulk actions */}
-        <div className="mb-4">
-          <BulkActions
-            selectedCount={selectedIds.length}
-            onSelectAll={selectAll}
-            onDeselectAll={deselectAll}
-            onBulkApprove={(platform) => {
-              bulkApprove(platform);
-            }}
-            onBulkReject={() => {
-              bulkReject();
-            }}
-            totalCount={pendingFilteredDrafts.length}
-          />
-        </div>
-
-        {/* Queue */}
-        {filteredDrafts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white border border-stone-200 rounded-2xl">
-            <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center mb-4">
-              <Inbox size={24} className="text-stone-400" />
-            </div>
-            <h3 className="text-lg font-medium text-stone-900 mb-2">
-              No items in queue
-            </h3>
-            <p className="text-sm text-stone-500 text-center max-w-sm mb-6">
-              Click &quot;Scan Sources&quot; to fetch feedback from Reddit and Twitter,
-              or add demo data to test the flow.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={addDemoData}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors"
-              >
-                <Plus size={16} />
-                Add Demo Data
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors"
-              >
-                <Zap size={16} />
-                Scan Sources
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredDrafts.map((draft) => (
-              <ReviewCard
-                key={draft.id}
-                draft={draft}
-                isSelected={selectedIds.includes(draft.id)}
-                onSelect={handleSelect}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onEdit={handleEdit}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* Edit modal would go here */}
-      {editingDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6">
-            <h2 className="text-lg font-medium mb-4">Edit Ticket Draft</h2>
-            <p className="text-sm text-stone-500 mb-4">
-              Editing functionality coming soon. For now, approve or reject as-is.
-            </p>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center bg-stone-100 rounded-lg p-1">
             <button
-              onClick={() => setEditingDraft(null)}
-              className="px-4 py-2 text-sm font-medium text-white bg-stone-900 rounded-lg"
+              onClick={() => setViewMode('kanban')}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                viewMode === 'kanban'
+                  ? 'bg-white text-stone-900 shadow-sm'
+                  : 'text-stone-500 hover:text-stone-700'
+              )}
             >
-              Close
+              <LayoutGrid size={16} />
+              Board
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                viewMode === 'list'
+                  ? 'bg-white text-stone-900 shadow-sm'
+                  : 'text-stone-500 hover:text-stone-700'
+              )}
+            >
+              <List size={16} />
+              List
             </button>
           </div>
+
+          {/* Refresh */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRefresh}
+            className="p-2 text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+          >
+            <RefreshCw size={20} className={cn(isRefreshing && 'animate-spin')} />
+          </motion.button>
         </div>
-      )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Inbox"
+          value={inboxTickets.length}
+          icon={Clock}
+          color="indigo"
+        />
+        <StatCard
+          label="Reviewing"
+          value={reviewingTickets.length}
+          icon={AlertCircle}
+          color="amber"
+        />
+        <StatCard
+          label="Approved"
+          value={approvedTickets.length}
+          icon={CheckCircle2}
+          color="emerald"
+        />
+        <StatCard
+          label="Rejected"
+          value={rejectedTickets.length}
+          icon={XCircle}
+          color="rose"
+        />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+          />
+          <input
+            type="text"
+            placeholder="Search feedback..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-stone-200 text-stone-700 text-sm font-medium rounded-xl hover:bg-stone-50 transition-colors">
+          <Filter size={16} />
+          Filter
+        </button>
+      </div>
+
+      {/* Kanban Board */}
+      <AnimatePresence mode="wait">
+        {viewMode === 'kanban' ? (
+          <motion.div
+            key="kanban"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4"
+          >
+            {/* Inbox Column */}
+            <KanbanColumn id="inbox" title="Inbox" count={inboxTickets.length} color="slate">
+              {inboxTickets.map((ticket) => (
+                <KanbanCard
+                  key={ticket.id}
+                  {...ticket}
+                  onApprove={() => handleStatusChange(ticket.id, 'approved')}
+                  onReject={() => handleStatusChange(ticket.id, 'rejected')}
+                  onView={() => console.log('View', ticket.id)}
+                />
+              ))}
+            </KanbanColumn>
+
+            {/* Reviewing Column */}
+            <KanbanColumn id="reviewing" title="Reviewing" count={reviewingTickets.length} color="amber">
+              {reviewingTickets.map((ticket) => (
+                <KanbanCard
+                  key={ticket.id}
+                  {...ticket}
+                  onApprove={() => handleStatusChange(ticket.id, 'approved')}
+                  onReject={() => handleStatusChange(ticket.id, 'rejected')}
+                  onView={() => console.log('View', ticket.id)}
+                />
+              ))}
+            </KanbanColumn>
+
+            {/* Approved Column */}
+            <KanbanColumn id="approved" title="Approved" count={approvedTickets.length} color="emerald">
+              {approvedTickets.map((ticket) => (
+                <KanbanCard
+                  key={ticket.id}
+                  {...ticket}
+                  onView={() => console.log('View', ticket.id)}
+                />
+              ))}
+            </KanbanColumn>
+
+            {/* Rejected Column */}
+            <KanbanColumn id="rejected" title="Rejected" count={rejectedTickets.length} color="rose">
+              {rejectedTickets.map((ticket) => (
+                <KanbanCard
+                  key={ticket.id}
+                  {...ticket}
+                  onView={() => console.log('View', ticket.id)}
+                />
+              ))}
+            </KanbanColumn>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="bg-white rounded-2xl border border-stone-200 overflow-hidden"
+          >
+            {/* List view table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-stone-50 border-b border-stone-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Feedback
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Source
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Priority
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {filteredTickets.map((ticket) => (
+                    <tr key={ticket.id} className="hover:bg-stone-50/50">
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-medium text-stone-900 text-sm">{ticket.title}</p>
+                          <p className="text-xs text-stone-500 mt-1 line-clamp-1">
+                            {ticket.excerpt}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <span>{ticket.sourceIcon}</span>
+                          <span className="text-sm text-stone-600">{ticket.source}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={cn(
+                            'px-2 py-1 rounded-full text-xs font-medium',
+                            ticket.priority === 'urgent' && 'bg-rose-100 text-rose-700',
+                            ticket.priority === 'high' && 'bg-orange-100 text-orange-700',
+                            ticket.priority === 'medium' && 'bg-indigo-100 text-indigo-700',
+                            ticket.priority === 'low' && 'bg-slate-100 text-slate-700'
+                          )}
+                        >
+                          {ticket.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={cn(
+                            'px-2 py-1 rounded-full text-xs font-medium capitalize',
+                            ticket.status === 'inbox' && 'bg-indigo-100 text-indigo-700',
+                            ticket.status === 'reviewing' && 'bg-amber-100 text-amber-700',
+                            ticket.status === 'approved' && 'bg-emerald-100 text-emerald-700',
+                            ticket.status === 'rejected' && 'bg-rose-100 text-rose-700'
+                          )}
+                        >
+                          {ticket.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <button className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
+                          <ArrowRight size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

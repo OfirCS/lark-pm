@@ -12,6 +12,9 @@ export async function GET() {
   }
 
   const supabase = createServerSupabaseClient();
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+  }
 
   // Get user's organization
   const { data: orgMember } = await supabase

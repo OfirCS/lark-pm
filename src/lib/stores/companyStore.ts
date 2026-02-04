@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Flag to track if we've loaded from Supabase
+let supabaseLoaded = false;
+
 export interface CompanyContext {
   // Basic info
   productName: string;
@@ -207,4 +210,69 @@ export function getCompanyContextForAI(): string {
   if (competitors.length > 0) context += `\nCompetitors: ${competitors.join(', ')}`;
 
   return context;
+}
+
+// Load company settings from Supabase
+export async function loadCompanyFromSupabase(): Promise<boolean> {
+  if (supabaseLoaded) return true;
+
+  try {
+    const response = await fetch('/api/company');
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      const data = result.data;
+      const store = useCompanyStore.getState();
+
+      store.setCompany({
+        productName: data.product_name || '',
+        productDescription: data.product_description || '',
+        competitors: data.competitors || [],
+        searchTerms: data.search_terms || [],
+        subreddits: data.subreddits || [],
+        twitterKeywords: data.twitter_keywords || [],
+        enabledSources: data.enabled_sources || [],
+        selectedIntegrations: data.selected_integrations || [],
+        onboardingCompleted: data.onboarding_completed || false,
+      });
+
+      supabaseLoaded = true;
+      console.log('Loaded company settings from Supabase:', data.product_name);
+      return true;
+    }
+  } catch (err) {
+    console.error('Error loading from Supabase:', err);
+  }
+
+  return false;
+}
+
+// Save company settings to Supabase
+export async function saveCompanyToSupabase(): Promise<boolean> {
+  const store = useCompanyStore.getState();
+  const { company } = store;
+
+  try {
+    const response = await fetch('/api/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productName: company.productName,
+        productDescription: company.productDescription,
+        competitors: company.competitors,
+        searchTerms: company.searchTerms,
+        subreddits: company.subreddits,
+        twitterKeywords: company.twitterKeywords,
+        enabledSources: company.enabledSources,
+        selectedIntegrations: company.selectedIntegrations,
+        onboardingCompleted: company.onboardingCompleted,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (err) {
+    console.error('Error saving to Supabase:', err);
+    return false;
+  }
 }

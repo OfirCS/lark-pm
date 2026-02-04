@@ -48,7 +48,47 @@ export default function OnboardingPage() {
     } else {
       setIsLoading(true);
 
-      // Save all data to the company store
+      // Auto-generate search terms from product name
+      const searchTerms = data.productName
+        ? [data.productName, `${data.productName} feedback`, `${data.productName} review`, `${data.productName} alternative`]
+        : [];
+
+      // Auto-generate Twitter keywords
+      const twitterKeywords = data.productName
+        ? [data.productName, `#${data.productName.replace(/\s+/g, '')}`]
+        : [];
+
+      // Save to Supabase first
+      try {
+        const response = await fetch('/api/company', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productName: data.productName,
+            productDescription: data.productDescription,
+            competitors: data.competitors,
+            searchTerms,
+            subreddits: defaultSubreddits,
+            twitterKeywords,
+            enabledSources: data.sources,
+            selectedIntegrations: data.integrations,
+            onboardingCompleted: true,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          console.error('Failed to save to Supabase:', result.error);
+          // Still continue - localStorage will be backup
+        } else {
+          console.log('Saved company settings to Supabase:', result.data);
+        }
+      } catch (err) {
+        console.error('Error saving to Supabase:', err);
+      }
+
+      // Also save to local store as backup
       setProductName(data.productName);
       setEnabledSources(data.sources);
       setSelectedIntegrations(data.integrations);
@@ -56,7 +96,6 @@ export default function OnboardingPage() {
       setSubreddits(defaultSubreddits);
       completeOnboarding();
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
       router.push('/dashboard');
     }
   };

@@ -3,7 +3,7 @@
 // Core feedback item - normalized from any source
 export interface FeedbackItem {
   id: string;
-  source: 'reddit' | 'twitter' | 'slack' | 'support' | 'call';
+  source: 'reddit' | 'twitter' | 'slack' | 'support' | 'call' | 'file';
   sourceId: string;
   sourceUrl: string;
 
@@ -28,6 +28,8 @@ export interface FeedbackItem {
     likeCount?: number;
     isRetweet?: boolean;
     isReply?: boolean;
+    fileName?: string;
+    originalSource?: string;
   };
 }
 

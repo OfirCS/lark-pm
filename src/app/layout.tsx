@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import { CompanyProvider } from "@/components/providers/CompanyProvider";
 
 export const metadata: Metadata = {
   title: "Lark - AI Customer Intelligence for Product Managers",
@@ -26,7 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <AuthProvider>
+          <CompanyProvider>
+            {children}
+          </CompanyProvider>
+        </AuthProvider>
       </body>
     </html>
   );

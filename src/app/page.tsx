@@ -1,358 +1,410 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import {
-  ArrowRight,
-  Menu,
-  X,
-  MessageSquare,
-  BarChart3,
-  Zap,
-  Check,
-  TrendingUp,
-  Sparkles,
-  AlertTriangle,
-  TrendingDown,
-  Target,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, X, ArrowRight, Check, Plus, Minus } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 
-// --- Shared UI Components for Demos ---
-
-function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: 'gray' | 'red' | 'orange' | 'blue' | 'green' }) {
-  const styles = {
-    gray: 'bg-stone-100 text-stone-600 border-stone-200',
-    red: 'bg-rose-50 text-rose-700 border-rose-200',
-    orange: 'bg-orange-50 text-orange-700 border-orange-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${styles[color]}`}>
-      {children}
-    </span>
-  );
-}
-
-// --- Sections ---
+// --- Navigation ---
 
 function Nav() {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-stone-100">
-      <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
+        scrolled ? 'bg-white/90 backdrop-blur-sm border-b border-neutral-200' : 'bg-transparent'
+      }`}
+    >
+      <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
+        <Link href="/" className="hover:opacity-70 transition-opacity">
           <Logo size="sm" />
         </Link>
-        <div className="hidden md:flex items-center gap-8">
-          <Link href="#features" className="text-sm font-medium text-stone-600 hover:text-stone-900">Features</Link>
-          <Link href="#pricing" className="text-sm font-medium text-stone-600 hover:text-stone-900">Pricing</Link>
-          <Link href="/login" className="text-sm font-medium text-stone-600 hover:text-stone-900">Log in</Link>
-          <Link href="/signup" className="px-4 py-2 text-sm font-medium bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-all">
+        <div className="hidden md:flex items-center gap-10">
+          <Link href="#features" className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors">Features</Link>
+          <Link href="#pricing" className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors">Pricing</Link>
+          <Link href="/login" className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors">Log in</Link>
+          <Link
+            href="/signup"
+            className="px-5 py-2 text-sm font-medium bg-neutral-900 text-white rounded-full hover:bg-neutral-700 transition-colors"
+          >
             Get Started
           </Link>
         </div>
-        <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
+        <button className="md:hidden p-2" onClick={() => setIsOpen(!isOpen)}>
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
+
+      {isOpen && (
+        <div className="md:hidden bg-white border-b border-neutral-200">
+          <div className="px-6 py-4 space-y-3">
+            <Link href="#features" className="block text-sm text-neutral-600">Features</Link>
+            <Link href="#pricing" className="block text-sm text-neutral-600">Pricing</Link>
+            <Link href="/login" className="block text-sm text-neutral-600">Log in</Link>
+            <Link href="/signup" className="block w-full text-center px-4 py-2 text-sm font-medium bg-neutral-900 text-white rounded-full">
+              Get Started
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
 
+// --- Interactive Demo ---
+
+function InteractiveDemo() {
+  const [messages, setMessages] = useState<Array<{ id: number; text: string; source: string }>>([]);
+  const [phase, setPhase] = useState<'feed' | 'analyzing' | 'done'>('feed');
+  const [hoveredItem, setHoveredItem] = useState<number | null>(null);
+
+  const feedbackItems = [
+    { text: "We really need SSO for our enterprise rollout", source: "Slack" },
+    { text: "Would love a mobile app to check on things", source: "Twitter" },
+    { text: "SSO is blocking us from deploying to 500 users", source: "Intercom" },
+    { text: "Any plans for SAML authentication?", source: "Reddit" },
+    { text: "iOS app would be a game changer", source: "Slack" },
+  ];
+
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index < feedbackItems.length) {
+        setMessages(prev => [...prev, { id: Date.now(), ...feedbackItems[index] }]);
+        index++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => {
+          setPhase('analyzing');
+          setTimeout(() => setPhase('done'), 1200);
+        }, 400);
+      }
+    }, 700);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xl">
+      <div className="h-10 bg-neutral-50 border-b border-neutral-100 flex items-center justify-between px-4">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-neutral-300" />
+          <div className="w-2.5 h-2.5 rounded-full bg-neutral-300" />
+          <div className="w-2.5 h-2.5 rounded-full bg-neutral-300" />
+        </div>
+        <span className="text-[11px] text-neutral-400">app.lark.ai</span>
+        <div className="w-12" />
+      </div>
+
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 animate-pulse" />
+            <span className="text-[11px] text-neutral-500 uppercase tracking-wide">Live</span>
+          </div>
+          <span className="text-[11px] text-neutral-400">{messages.length} items</span>
+        </div>
+
+        <div className="space-y-1.5 min-h-[180px]">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors cursor-pointer"
+              onMouseEnter={() => setHoveredItem(msg.id)}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-neutral-700 truncate">{msg.text}</p>
+              </div>
+              <span className="text-[10px] text-neutral-400 ml-3">{msg.source}</span>
+            </div>
+          ))}
+        </div>
+
+        {phase === 'analyzing' && (
+          <div className="mt-3 p-3 rounded-lg bg-neutral-900 text-white">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-neutral-600 border-t-white rounded-full animate-spin" />
+              <span className="text-sm">Analyzing...</span>
+            </div>
+          </div>
+        )}
+
+        {phase === 'done' && (
+          <div className="mt-3 p-4 rounded-lg bg-neutral-900 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-0.5">Top Request</p>
+                <p className="font-medium">SSO / SAML Authentication</p>
+                <p className="text-sm text-neutral-400 mt-1">3 mentions · $340k at risk</p>
+              </div>
+              <span className="text-3xl font-light">94</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Hero ---
+
 function Hero() {
   return (
-    <section className="pt-32 pb-20 px-6 bg-white overflow-hidden">
-      <div className="max-w-4xl mx-auto text-center mb-16">
-        <h1 className="font-serif text-5xl md:text-7xl text-stone-900 mb-6 tracking-tight leading-[1.1]">
-          The AI Product Manager.
-        </h1>
-        <p className="text-xl text-stone-500 mb-10 max-w-2xl mx-auto leading-relaxed">
-          Lark connects to your customer channels, identifies feature requests, and drafts tickets for your engineering team.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/signup" className="px-8 py-3.5 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2">
-            Start for free <ArrowRight size={16} />
-          </Link>
-          <Link href="/dashboard" className="px-8 py-3.5 bg-stone-100 text-stone-600 rounded-xl font-medium hover:bg-stone-200 transition-all">
-            View Demo
-          </Link>
-        </div>
+    <section className="relative pt-28 pb-24 px-6 overflow-hidden">
+      {/* Subtle color washes in background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-96 h-96 bg-amber-100/40 rounded-full blur-3xl" />
+        <div className="absolute top-40 -left-32 w-80 h-80 bg-sky-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-rose-100/20 rounded-full blur-3xl" />
       </div>
 
-      {/* Hero Visual: The "App" itself */}
-      <div className="max-w-6xl mx-auto relative perspective-1000">
-        <div className="relative rounded-xl border border-stone-200 bg-white shadow-2xl overflow-hidden transform rotate-x-6 scale-95 hover:scale-100 hover:rotate-x-0 transition-all duration-700">
-          {/* Fake Browser Header */}
-          <div className="h-10 bg-stone-50 border-b border-stone-200 flex items-center px-4 gap-2">
-            <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-              <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-              <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
+      <div className="max-w-6xl mx-auto relative">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <p className="text-sm text-neutral-400 mb-5 tracking-wide">
+              Product Intelligence
+            </p>
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] text-neutral-900 mb-6 leading-[1.15] tracking-tight">
+              Know what your customers want, before they churn
+            </h1>
+            <p className="text-lg text-neutral-500 mb-8 leading-relaxed max-w-md">
+              Lark aggregates feedback from everywhere and surfaces what matters most to your revenue.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-700 transition-colors"
+              >
+                Start free trial
+                <ArrowRight size={15} />
+              </Link>
+              <Link
+                href="#features"
+                className="inline-flex items-center gap-2 px-6 py-3 border border-neutral-200 text-neutral-700 rounded-full text-sm font-medium hover:bg-neutral-50 transition-colors"
+              >
+                See how it works
+              </Link>
             </div>
-            <div className="flex-1 text-center text-[10px] font-medium text-stone-400">Lark Dashboard</div>
+            <p className="mt-5 text-sm text-neutral-400">
+              Free 14-day trial · No credit card
+            </p>
           </div>
 
-          {/* App UI Snapshot */}
-          <div className="flex h-[600px] bg-stone-50/50">
-            {/* Sidebar */}
-            <div className="w-64 border-r border-stone-200 bg-white hidden md:block p-4 space-y-1">
-              <div className="px-3 py-2 text-sm font-medium bg-stone-100 rounded-md text-stone-900 flex items-center gap-3">
-                <TrendingUp size={16} /> Feature Requests
-              </div>
-              <div className="px-3 py-2 text-sm font-medium text-stone-500 flex items-center gap-3">
-                <MessageSquare size={16} /> Social Feed
-              </div>
-              <div className="px-3 py-2 text-sm font-medium text-stone-500 flex items-center gap-3">
-                <BarChart3 size={16} /> Analytics
-              </div>
-            </div>
+          <InteractiveDemo />
+        </div>
+      </div>
+    </section>
+  );
+}
 
-            {/* Main Content */}
-            <div className="flex-1 p-8 overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-stone-900">Feature Requests</h2>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1.5 text-xs font-medium border border-stone-200 rounded-lg bg-white">Filter</button>
-                  <button className="px-3 py-1.5 text-xs font-medium bg-stone-900 text-white rounded-lg">+ Add</button>
-                </div>
-              </div>
+// --- Partners ---
 
-              {/* Table */}
-              <div className="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-stone-200 bg-stone-50 text-xs font-medium text-stone-500">
-                  <div className="col-span-5">Title</div>
-                  <div className="col-span-2">Score</div>
-                  <div className="col-span-2">Revenue</div>
-                  <div className="col-span-3 text-right">Status</div>
-                </div>
-                {[
-                  { title: "SSO / SAML Support", score: 287, rev: "$450k", status: "Critical", color: "red" },
-                  { title: "Salesforce Integration", score: 245, rev: "$320k", status: "High", color: "orange" },
-                  { title: "Mobile App (iOS)", score: 198, rev: "$180k", status: "Medium", color: "blue" },
-                  { title: "Dark Mode", score: 142, rev: "$50k", status: "Planned", color: "gray" },
-                  { title: "API Rate Limiting", score: 120, rev: "$28k", status: "Low", color: "gray" },
-                ].map((item, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-stone-100 last:border-0 items-center hover:bg-stone-50/50 transition-colors">
-                    <div className="col-span-5 font-medium text-stone-900 text-sm">{item.title}</div>
-                    <div className="col-span-2 text-stone-600 text-sm font-semibold">{item.score}</div>
-                    <div className="col-span-2 text-stone-500 text-sm">{item.rev}</div>
-                    <div className="col-span-3 text-right">
-                      {/* @ts-expect-error Badge color prop type is strictly checked elsewhere but here we map dynamic string */}
-                      <Badge color={item.color}>{item.status}</Badge>
-                    </div>
-                  </div>
+function Partners() {
+  const partners = ['Notion', 'Linear', 'Figma', 'Stripe', 'Vercel'];
+
+  return (
+    <section className="py-14 border-y border-neutral-100">
+      <div className="max-w-6xl mx-auto px-6">
+        <p className="text-center text-xs text-neutral-400 mb-6 uppercase tracking-widest">
+          Trusted by product teams at
+        </p>
+        <div className="flex justify-center items-center gap-10 md:gap-16 flex-wrap">
+          {partners.map((name) => (
+            <span key={name} className="text-neutral-300 font-medium text-lg hover:text-neutral-500 transition-colors">
+              {name}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --- Feature Components ---
+
+function SourceSelector() {
+  const [selected, setSelected] = useState<string[]>(['Slack', 'Reddit']);
+  const sources = ['Slack', 'Reddit', 'Twitter', 'Intercom', 'Zendesk', 'Email'];
+
+  return (
+    <div className="bg-white rounded-xl p-5 border border-neutral-200">
+      <p className="text-[11px] text-neutral-400 uppercase tracking-wide mb-4">Select sources</p>
+      <div className="grid grid-cols-2 gap-2">
+        {sources.map((source) => (
+          <button
+            key={source}
+            onClick={() => setSelected(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])}
+            className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-all ${
+              selected.includes(source)
+                ? 'bg-neutral-900 text-white border-neutral-900'
+                : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300'
+            }`}
+          >
+            {source}
+            {selected.includes(source) ? <Check size={14} /> : <Plus size={14} className="text-neutral-400" />}
+          </button>
+        ))}
+      </div>
+      <p className="text-sm text-neutral-500 mt-4 pt-4 border-t border-neutral-100">
+        <span className="font-medium text-neutral-900">{selected.length}</span> connected
+      </p>
+    </div>
+  );
+}
+
+function ClusteringDemo() {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const clusters = [
+    { id: 1, name: 'Mobile App', count: 47 },
+    { id: 2, name: 'SSO Authentication', count: 34 },
+    { id: 3, name: 'API Improvements', count: 28 },
+  ];
+  const items = ["Need mobile app for iOS", "Would love to use this on my phone", "Android app please!", "Mobile support when?"];
+
+  return (
+    <div className="bg-white rounded-xl p-5 border border-neutral-200">
+      <p className="text-[11px] text-neutral-400 uppercase tracking-wide mb-4">Clustered requests</p>
+      <div className="space-y-2">
+        {clusters.map((c) => (
+          <div key={c.id}>
+            <button
+              onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+              className={`w-full flex items-center justify-between p-3 rounded-lg border text-sm transition-all ${
+                expanded === c.id
+                  ? 'bg-neutral-900 text-white border-neutral-900'
+                  : 'bg-white border-neutral-200 hover:border-neutral-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {expanded === c.id ? <Minus size={14} /> : <Plus size={14} className={expanded === c.id ? '' : 'text-neutral-400'} />}
+                {c.name}
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${expanded === c.id ? 'bg-white/20' : 'bg-neutral-100'}`}>
+                {c.count}
+              </span>
+            </button>
+            {expanded === c.id && c.id === 1 && (
+              <div className="mt-2 ml-5 space-y-1">
+                {items.map((item, i) => (
+                  <div key={i} className="text-sm text-neutral-500 p-2 bg-neutral-50 rounded">"{item}"</div>
                 ))}
               </div>
-            </div>
+            )}
           </div>
-        </div>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }
 
-function Feature1() {
-  return (
-    <section className="py-24 bg-white border-t border-stone-100">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
-          <div>
-            <h2 className="font-serif text-4xl text-stone-900 mb-6">Aggregate feedback.</h2>
-            <p className="text-lg text-stone-600 mb-8 leading-relaxed">
-              Lark monitors Slack, Intercom, Reddit, and Twitter. It identifies bugs and feature requests, then clusters them into actionable insights.
-            </p>
-            <ul className="space-y-3">
-              {['Real-time sentiment analysis', 'Auto-detection of bugs vs requests', 'Revenue impact estimation'].map(i => (
-                <li key={i} className="flex items-center gap-3 text-stone-700 text-sm font-medium">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><Check size={12} /></div>
-                  {i}
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Visual: The Feed Card */}
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl p-2 rotate-2 hover:rotate-0 transition-transform duration-500">
-            <div className="bg-stone-50 rounded-xl border border-stone-100 p-6 space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-stone-400 uppercase">Live Feed</span>
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              </div>
-              {[
-                { user: "@alex_pm", text: "We need an iOS app ASAP.", source: "Twitter" },
-                { user: "Sarah (Acme)", text: "The new dashboard is confusing.", source: "Intercom" },
-                { user: "u/dev_guy", text: "Love the Linear sync!", source: "Reddit" },
-              ].map((msg, i) => (
-                <div key={i} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-xs text-stone-900">{msg.user}</span>
-                    <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">{msg.source}</span>
-                  </div>
-                  <p className="text-sm text-stone-600">{msg.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Feature2() {
-  return (
-    <section className="py-24 bg-stone-50 border-t border-stone-200">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
-          {/* Visual: The Ticket Card */}
-          <div className="order-2 lg:order-1 bg-white rounded-2xl border border-stone-200 shadow-xl p-8 -rotate-2 hover:rotate-0 transition-transform duration-500">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
-                <Zap size={20} className="text-stone-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-stone-900">Create Ticket</h3>
-                <p className="text-xs text-stone-500">Linear Integration</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-stone-500 mb-1.5">Title</label>
-                <div className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm text-stone-900 font-medium">
-                  Implement SSO for Enterprise
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-stone-500 mb-1.5">Description</label>
-                <div className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm text-stone-600 h-20">
-                  Requested by 12 customers including Acme Corp. Revenue risk: $450k...
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <div className="px-4 py-2 bg-stone-900 text-white text-xs font-medium rounded-lg shadow-sm">
-                  Create Issue
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="order-1 lg:order-2">
-            <h2 className="font-serif text-4xl text-stone-900 mb-6">Act on insights.</h2>
-            <p className="text-lg text-stone-600 mb-8 leading-relaxed">
-              Don&apos;t let feedback gather dust. Lark drafts tickets for Linear, Jira, and GitHub automatically, complete with context and revenue data.
-            </p>
-            <ul className="space-y-3">
-              {['One-click export to issue trackers', 'Two-way status sync', 'Automatic stakeholder updates'].map(i => (
-                <li key={i} className="flex items-center gap-3 text-stone-700 text-sm font-medium">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><Check size={12} /></div>
-                  {i}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Predictions() {
-  const predictions = [
-    {
-      icon: AlertTriangle,
-      title: 'Churn Risk Alert',
-      description: '3 enterprise accounts showing frustration signals',
-      metric: '$180k ARR at risk',
-      color: 'rose',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Feature Opportunity',
-      description: 'Mobile app demand increased 340% this quarter',
-      metric: '89 mentions',
-      color: 'emerald',
-    },
-    {
-      icon: TrendingDown,
-      title: 'Sentiment Shift',
-      description: 'Onboarding complaints down 45% after v2.1',
-      metric: 'Improving',
-      color: 'blue',
-    },
-    {
-      icon: Target,
-      title: 'Competitor Intel',
-      description: 'Users switching from Acme cite "better API"',
-      metric: '12 mentions',
-      color: 'amber',
-    },
+function ScoreDemo() {
+  const [threshold, setThreshold] = useState(70);
+  const items = [
+    { name: 'SSO / SAML', revenue: '$340k', score: 94 },
+    { name: 'Mobile App', revenue: '$180k', score: 82 },
+    { name: 'API v2', revenue: '$95k', score: 71 },
+    { name: 'Dark Mode', revenue: '$45k', score: 58 },
+    { name: 'Webhooks', revenue: '$30k', score: 42 },
   ];
 
   return (
-    <section id="features" className="py-24 bg-white border-t border-stone-100">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium mb-6">
-              <Sparkles size={14} /> AI-Powered
+    <div className="bg-white rounded-xl p-5 border border-neutral-200">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] text-neutral-400 uppercase tracking-wide">Priority threshold</p>
+        <span className="text-sm font-medium">{threshold}</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value={threshold}
+        onChange={(e) => setThreshold(Number(e.target.value))}
+        className="w-full h-1.5 bg-neutral-200 rounded-full appearance-none cursor-pointer mb-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-neutral-900 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+      />
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div
+            key={item.name}
+            className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-all ${
+              item.score >= threshold
+                ? 'bg-neutral-900 text-white border-neutral-900'
+                : 'bg-white border-neutral-200 opacity-40'
+            }`}
+          >
+            <div>
+              <p className="font-medium">{item.name}</p>
+              <p className={`text-xs ${item.score >= threshold ? 'text-neutral-400' : 'text-neutral-400'}`}>{item.revenue}</p>
             </div>
-            <h2 className="font-serif text-4xl text-stone-900 mb-6">Predict what&apos;s next.</h2>
-            <p className="text-lg text-stone-600 mb-8 leading-relaxed">
-              Lark analyzes patterns across your feedback to surface churn risks, feature opportunities, and market shifts before they become obvious.
-            </p>
-            <ul className="space-y-3">
-              {['Churn prediction from sentiment trends', 'Feature demand forecasting', 'Competitor mention tracking', 'Revenue impact scoring'].map(i => (
-                <li key={i} className="flex items-center gap-3 text-stone-700 text-sm font-medium">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><Check size={12} /></div>
-                  {i}
-                </li>
-              ))}
-            </ul>
-            <Link href="/predictions" className="inline-flex items-center gap-2 mt-8 text-sm font-medium text-stone-900 hover:text-stone-600 transition-colors">
-              See predictions in action <ArrowRight size={14} />
-            </Link>
+            <span className="text-lg">{item.score}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Features Section ---
+
+function Features() {
+  return (
+    <section id="features" className="relative py-24 overflow-hidden">
+      {/* Background color accent */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/4 -right-20 w-96 h-96 bg-emerald-50/50 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -left-20 w-80 h-80 bg-violet-50/40 rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 relative">
+        <div className="text-center mb-20">
+          <h2 className="font-display text-3xl sm:text-4xl text-neutral-900 mb-4">How it works</h2>
+          <p className="text-lg text-neutral-500 max-w-lg mx-auto">
+            From scattered feedback to prioritized roadmap.
+          </p>
+        </div>
+
+        <div className="space-y-28">
+          {/* Feature 1 */}
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <span className="text-sm text-neutral-300 mb-2 block">01</span>
+              <h3 className="font-display text-2xl sm:text-3xl text-neutral-900 mb-4">Connect your sources</h3>
+              <p className="text-neutral-500 leading-relaxed">
+                Pull feedback from Slack, Intercom, Reddit, Twitter, and support tickets. Click to toggle.
+              </p>
+            </div>
+            <SourceSelector />
           </div>
 
-          {/* Visual: Predictions Dashboard */}
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl p-2 rotate-1 hover:rotate-0 transition-transform duration-500">
-            <div className="bg-stone-50 rounded-xl border border-stone-100 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-indigo-600" />
-                  <span className="text-sm font-semibold text-stone-900">AI Predictions</span>
-                </div>
-                <span className="text-xs text-stone-400">Updated 2h ago</span>
-              </div>
-              <div className="space-y-3">
-                {predictions.map((pred, i) => {
-                  const colorStyles = {
-                    rose: 'bg-rose-50 text-rose-600 border-rose-100',
-                    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-                    blue: 'bg-blue-50 text-blue-600 border-blue-100',
-                    amber: 'bg-amber-50 text-amber-600 border-amber-100',
-                  };
-                  const Icon = pred.icon;
-                  return (
-                    <div key={i} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${colorStyles[pred.color as keyof typeof colorStyles]}`}>
-                          <Icon size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-medium text-sm text-stone-900">{pred.title}</h4>
-                            <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded whitespace-nowrap">{pred.metric}</span>
-                          </div>
-                          <p className="text-xs text-stone-500 mt-0.5">{pred.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Feature 2 */}
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="lg:order-2">
+              <span className="text-sm text-neutral-300 mb-2 block">02</span>
+              <h3 className="font-display text-2xl sm:text-3xl text-neutral-900 mb-4">AI clusters similar requests</h3>
+              <p className="text-neutral-500 leading-relaxed">
+                Stop reading the same request 50 times. Click a cluster to expand.
+              </p>
             </div>
+            <ClusteringDemo />
+          </div>
+
+          {/* Feature 3 */}
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <span className="text-sm text-neutral-300 mb-2 block">03</span>
+              <h3 className="font-display text-2xl sm:text-3xl text-neutral-900 mb-4">Prioritize by impact</h3>
+              <p className="text-neutral-500 leading-relaxed">
+                Drag the slider to filter by priority score.
+              </p>
+            </div>
+            <ScoreDemo />
           </div>
         </div>
       </div>
@@ -360,149 +412,100 @@ function Predictions() {
   );
 }
 
+// --- Pricing ---
+
 function Pricing() {
-  const [isAnnual, setIsAnnual] = useState(true);
+  const [annual, setAnnual] = useState(true);
 
   const plans = [
     {
       name: 'Starter',
-      description: 'For teams exploring AI-powered PM',
-      price: { monthly: 0, annual: 0 },
-      features: [
-        '1 data source (Reddit)',
-        '50 feedback items/month',
-        'Basic classification',
-        'Manual ticket creation',
-        'Email support',
-      ],
-      cta: 'Start Free',
-      popular: false,
+      price: 'Free',
+      description: 'For small teams',
+      features: ['500 feedback items/mo', '3 integrations', 'Basic clustering'],
+      cta: 'Start free',
     },
     {
-      name: 'Growth',
-      description: 'For growing product teams',
-      price: { monthly: 249, annual: 199 },
-      features: [
-        '3 data sources',
-        '500 feedback items/month',
-        'AI classification + drafting',
-        'Linear & Jira integration',
-        'Priority support',
-        'Weekly digest reports',
-      ],
-      cta: 'Start Trial',
+      name: 'Pro',
+      price: annual ? '$79' : '$99',
+      period: '/mo',
+      description: 'For growing teams',
+      features: ['Unlimited items', 'All integrations', 'Revenue scoring', 'Linear/Jira sync'],
+      cta: 'Start trial',
       popular: true,
     },
     {
-      name: 'Business',
-      description: 'For scaling organizations',
-      price: { monthly: 599, annual: 499 },
-      features: [
-        'Unlimited data sources',
-        '2,000 feedback items/month',
-        'Advanced AI workflows',
-        'All integrations',
-        'Custom classification rules',
-        'API access',
-        'Dedicated success manager',
-      ],
-      cta: 'Start Trial',
-      popular: false,
-    },
-    {
       name: 'Enterprise',
-      description: 'For large teams with custom needs',
-      price: { monthly: null, annual: null },
-      features: [
-        'Unlimited everything',
-        'Custom integrations',
-        'SSO / SAML',
-        'SLA guarantees',
-        'On-premise option',
-        'Custom AI training',
-        'Dedicated support team',
-      ],
-      cta: 'Contact Sales',
-      popular: false,
+      price: 'Custom',
+      description: 'For large orgs',
+      features: ['Everything in Pro', 'SSO / SAML', 'Dedicated support'],
+      cta: 'Contact sales',
     },
   ];
 
   return (
-    <section id="pricing" className="py-24 bg-white border-t border-stone-100">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="text-center mb-12">
-          <h2 className="font-serif text-4xl text-stone-900 mb-4">Simple, transparent pricing</h2>
-          <p className="text-lg text-stone-500 mb-8">Start free, scale as you grow</p>
+    <section id="pricing" className="relative py-24 overflow-hidden">
+      {/* Background accent */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/3 w-96 h-96 bg-orange-50/40 rounded-full blur-3xl" />
+      </div>
 
-          {/* Annual/Monthly Toggle */}
-          <div className="flex items-center justify-center gap-3">
-            <span className={`text-sm font-medium ${!isAnnual ? 'text-stone-900' : 'text-stone-400'}`}>Monthly</span>
+      <div className="max-w-4xl mx-auto px-6 relative">
+        <div className="text-center mb-12">
+          <h2 className="font-display text-3xl sm:text-4xl text-neutral-900 mb-4">Pricing</h2>
+          <p className="text-neutral-500 mb-6">Start free. Upgrade when you need more.</p>
+
+          <div className="inline-flex items-center p-1 bg-neutral-100 rounded-full">
             <button
-              onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative w-14 h-7 rounded-full transition-colors ${isAnnual ? 'bg-stone-900' : 'bg-stone-300'}`}
+              onClick={() => setAnnual(false)}
+              className={`px-4 py-1.5 text-sm rounded-full transition-all ${!annual ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500'}`}
             >
-              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${isAnnual ? 'left-8' : 'left-1'}`} />
+              Monthly
             </button>
-            <span className={`text-sm font-medium ${isAnnual ? 'text-stone-900' : 'text-stone-400'}`}>
-              Annual <span className="text-emerald-600 text-xs font-semibold ml-1">Save 20%</span>
-            </span>
+            <button
+              onClick={() => setAnnual(true)}
+              className={`px-4 py-1.5 text-sm rounded-full transition-all ${annual ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500'}`}
+            >
+              Annual
+            </button>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-3 gap-4">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-2xl border p-6 flex flex-col ${
+              className={`p-6 rounded-xl border transition-all ${
                 plan.popular
-                  ? 'border-stone-900 shadow-xl scale-105 bg-white'
-                  : 'border-stone-200 bg-white hover:border-stone-300 transition-colors'
+                  ? 'bg-neutral-900 text-white border-neutral-900'
+                  : 'bg-white border-neutral-200 hover:border-neutral-300'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-stone-900 text-white text-xs font-medium rounded-full">
-                  Most Popular
-                </div>
+                <span className="inline-block text-[10px] font-medium bg-white text-neutral-900 px-2 py-0.5 rounded-full mb-3 uppercase tracking-wide">
+                  Popular
+                </span>
               )}
-
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-stone-900 mb-1">{plan.name}</h3>
-                <p className="text-sm text-stone-500">{plan.description}</p>
+              <h3 className={`font-medium mb-1 ${plan.popular ? 'text-white' : 'text-neutral-900'}`}>{plan.name}</h3>
+              <div className="mb-3">
+                <span className={`text-3xl font-display ${plan.popular ? 'text-white' : 'text-neutral-900'}`}>{plan.price}</span>
+                {plan.period && <span className={plan.popular ? 'text-neutral-400' : 'text-neutral-400'}>{plan.period}</span>}
               </div>
-
-              <div className="mb-6">
-                {plan.price.monthly === null ? (
-                  <div className="text-3xl font-bold text-stone-900">Custom</div>
-                ) : plan.price.monthly === 0 ? (
-                  <div className="text-3xl font-bold text-stone-900">$0</div>
-                ) : (
-                  <div>
-                    <span className="text-3xl font-bold text-stone-900">
-                      ${isAnnual ? plan.price.annual : plan.price.monthly}
-                    </span>
-                    <span className="text-stone-500 text-sm">/month</span>
-                  </div>
-                )}
-                {plan.price.monthly !== null && plan.price.monthly > 0 && isAnnual && (
-                  <p className="text-xs text-stone-400 mt-1">Billed annually</p>
-                )}
-              </div>
-
-              <ul className="space-y-3 mb-8 flex-1">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-stone-600">
-                    <Check size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                    {feature}
+              <p className={`text-sm mb-5 ${plan.popular ? 'text-neutral-400' : 'text-neutral-500'}`}>{plan.description}</p>
+              <ul className="space-y-2 mb-5">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-sm">
+                    <Check size={14} className={plan.popular ? 'text-neutral-500' : 'text-neutral-400'} />
+                    <span className={plan.popular ? 'text-neutral-300' : 'text-neutral-600'}>{f}</span>
                   </li>
                 ))}
               </ul>
-
               <Link
-                href={plan.name === 'Enterprise' ? '/contact' : '/signup'}
-                className={`block text-center py-3 px-4 rounded-lg font-medium text-sm transition-all ${
+                href="/signup"
+                className={`block w-full text-center py-2.5 rounded-full text-sm font-medium transition-all ${
                   plan.popular
-                    ? 'bg-stone-900 text-white hover:bg-stone-800'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-white text-neutral-900 hover:bg-neutral-100'
+                    : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
                 }`}
               >
                 {plan.cta}
@@ -510,55 +513,64 @@ function Pricing() {
             </div>
           ))}
         </div>
-
-        <p className="text-center text-sm text-stone-400 mt-8">
-          All plans include 14-day free trial. No credit card required.
-        </p>
       </div>
     </section>
   );
 }
+
+// --- CTA ---
 
 function CTA() {
   return (
-    <section className="py-32 bg-white border-t border-stone-200">
-      <div className="max-w-3xl mx-auto px-6 text-center">
-        <h2 className="font-serif text-4xl md:text-5xl text-stone-900 mb-6">
-          Ready to hire your new teammate?
+    <section className="py-20 bg-neutral-900">
+      <div className="max-w-2xl mx-auto px-6 text-center">
+        <h2 className="font-display text-3xl text-white mb-4">
+          Stop guessing what to build
         </h2>
-        <p className="text-lg text-stone-500 mb-10">
-          Join 500+ product teams building better software with Lark.
+        <p className="text-neutral-400 mb-8">
+          Join 500+ product teams using Lark.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/signup" className="px-8 py-4 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-all shadow-xl hover:-translate-y-1">
-            Start for free
-          </Link>
-        </div>
-        <p className="mt-8 text-xs text-stone-400">No credit card required.</p>
+        <Link
+          href="/signup"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-white text-neutral-900 rounded-full text-sm font-medium hover:bg-neutral-100 transition-colors"
+        >
+          Start free trial
+          <ArrowRight size={15} />
+        </Link>
       </div>
     </section>
   );
 }
 
+// --- Footer ---
+
 function Footer() {
   return (
-    <footer className="py-12 border-t border-stone-100 bg-stone-50">
-      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-        <Logo size="sm" />
-        <p className="text-sm text-stone-400">© 2026 Lark Inc.</p>
+    <footer className="py-10 bg-white border-t border-neutral-100">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <Logo size="sm" />
+          <div className="flex items-center gap-6">
+            <Link href="/privacy" className="text-sm text-neutral-400 hover:text-neutral-600">Privacy</Link>
+            <Link href="/terms" className="text-sm text-neutral-400 hover:text-neutral-600">Terms</Link>
+            <Link href="https://twitter.com/lark" className="text-sm text-neutral-400 hover:text-neutral-600">Twitter</Link>
+          </div>
+          <p className="text-sm text-neutral-300">2024 Lark</p>
+        </div>
       </div>
     </footer>
   );
 }
+
+// --- Page ---
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white">
       <Nav />
       <Hero />
-      <Feature1 />
-      <Feature2 />
-      <Predictions />
+      <Partners />
+      <Features />
       <Pricing />
       <CTA />
       <Footer />

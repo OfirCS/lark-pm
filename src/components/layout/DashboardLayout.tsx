@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/components/providers/AuthProvider';
 import {
   Home,
   BarChart3,
@@ -171,9 +172,11 @@ function NavItemComponent({
 function TopHeader({
   onMenuToggle,
   collapsed,
+  userInitials,
 }: {
   onMenuToggle: () => void;
   collapsed: boolean;
+  userInitials: string;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -213,7 +216,7 @@ function TopHeader({
         {/* Profile */}
         <button className="flex items-center gap-2 p-1.5 hover:bg-stone-100 rounded-xl transition-colors">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-stone-700 to-stone-900 flex items-center justify-center text-white text-sm font-medium">
-            AR
+            {userInitials}
           </div>
           <ChevronRight size={14} className="text-stone-400 hidden sm:block" />
         </button>
@@ -230,6 +233,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut, isLoading } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Get user initials
+  const getUserInitials = () => {
+    if (user?.fullName) {
+      return user.fullName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
 
   // Handle keyboard shortcut for search
   useEffect(() => {
@@ -325,7 +355,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               active={pathname === item.href}
             />
           ))}
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+          >
             <LogOut size={20} />
             {!sidebarCollapsed && <span className="text-sm font-medium">Log out</span>}
           </button>
@@ -381,6 +414,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <TopHeader
           onMenuToggle={() => setMobileMenuOpen(true)}
           collapsed={sidebarCollapsed}
+          userInitials={getUserInitials()}
         />
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           {children}

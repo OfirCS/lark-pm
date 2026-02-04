@@ -17,12 +17,18 @@ export default withAuth(
           '/',
           '/login',
           '/signup',
+          '/onboarding', // Onboarding flow
           '/api/auth',
+          '/auth/callback', // Supabase auth callback
           '/api/sources', // Reddit, Twitter search APIs (proxy public APIs)
           '/api/chat', // AI chat
+          '/api/pipeline', // Magic pipeline API
+          '/api/company', // Company settings API
+          '/api/feedback', // Feedback API
           '/brand',
           '/api/cron',
           '/api/integrations/slack/webhook',
+          '/dashboard', // Allow dashboard access for demo
         ];
 
         // Check if path is public
