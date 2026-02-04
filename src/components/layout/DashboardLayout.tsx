@@ -106,24 +106,18 @@ function NavItemComponent({
 
   return (
     <Link href={item.href} className="group relative block">
-      <motion.div
+      <div
         className={cn(
           'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
           active
             ? 'bg-stone-900 text-white shadow-lg shadow-stone-900/20'
             : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
         )}
-        whileHover={{ x: active ? 0 : 2 }}
-        whileTap={{ scale: 0.98 }}
       >
         <div className="relative">
-          <Icon size={20} strokeWidth={active ? 2 : 1.5} />
+          <Icon size={20} strokeWidth={1.5} />
           {active && (
-            <motion.div
-              layoutId="activeIndicator"
-              className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full"
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            />
+            <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
           )}
         </div>
 
@@ -169,7 +163,7 @@ function NavItemComponent({
             {item.badge && <span className="ml-2 text-stone-400">{item.badge}</span>}
           </div>
         )}
-      </motion.div>
+      </div>
     </Link>
   );
 }
