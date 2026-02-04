@@ -18,6 +18,8 @@ export default withAuth(
           '/login',
           '/signup',
           '/api/auth',
+          '/api/sources', // Reddit, Twitter search APIs (proxy public APIs)
+          '/api/chat', // AI chat
           '/brand',
           '/api/cron',
           '/api/integrations/slack/webhook',

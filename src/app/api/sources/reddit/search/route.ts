@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = subreddit
-      ? `https://www.reddit.com/r/${subreddit}/search.json`
-      : 'https://www.reddit.com/search.json';
+      ? `https://old.reddit.com/r/${subreddit}/search.json`
+      : 'https://old.reddit.com/search.json';
 
     const params = new URLSearchParams({
       q: query,
@@ -37,11 +37,13 @@ export async function POST(request: NextRequest) {
       t: time,
       limit: String(limit),
       restrict_sr: subreddit ? '1' : '0',
+      raw_json: '1',
     });
 
     const response = await fetch(`${baseUrl}?${params}`, {
       headers: {
-        'User-Agent': 'Lark/1.0 (Product Management Assistant)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
       },
     });
 
@@ -98,8 +100,8 @@ export async function GET(request: NextRequest) {
   }
 
   const baseUrl = subreddit
-    ? `https://www.reddit.com/r/${subreddit}/search.json`
-    : 'https://www.reddit.com/search.json';
+    ? `https://old.reddit.com/r/${subreddit}/search.json`
+    : 'https://old.reddit.com/search.json';
 
   const params = new URLSearchParams({
     q: query,
@@ -107,12 +109,14 @@ export async function GET(request: NextRequest) {
     t: time,
     limit,
     restrict_sr: subreddit ? '1' : '0',
+    raw_json: '1',
   });
 
   try {
     const response = await fetch(`${baseUrl}?${params}`, {
       headers: {
-        'User-Agent': 'Lark/1.0 (Product Management Assistant)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
       },
     });
 

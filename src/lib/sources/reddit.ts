@@ -49,7 +49,7 @@ export async function searchReddit(
 
   const response = await fetch(`${baseUrl}?${params}`, {
     headers: {
-      'User-Agent': 'Lark/1.0 (Product Management Assistant)',
+      'User-Agent': 'Mozilla/5.0 (compatible; LarkPM/1.0; +https://lark.pm)',
     },
   });
 
@@ -91,7 +91,7 @@ export async function getSubredditHot(
     `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit}`,
     {
       headers: {
-        'User-Agent': 'Lark/1.0 (Product Management Assistant)',
+        'User-Agent': 'Mozilla/5.0 (compatible; LarkPM/1.0; +https://lark.pm)',
       },
     }
   );
