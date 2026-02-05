@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Radio, Zap, Loader2, Plus, X } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useCompanyStore } from '@/lib/stores/companyStore';
@@ -9,9 +10,11 @@ import { useCompanyStore } from '@/lib/stores/companyStore';
 // Data sources to monitor
 const dataSources = [
   { id: 'reddit', name: 'Reddit', desc: 'r/SaaS, r/startups, etc.', emoji: '🔴' },
-  { id: 'twitter', name: 'Twitter/X', desc: 'Mentions & hashtags', emoji: '🐦' },
+  { id: 'twitter', name: 'X / Twitter', desc: 'Mentions & hashtags', emoji: '𝕏' },
   { id: 'linkedin', name: 'LinkedIn', desc: 'Posts & comments', emoji: '💼' },
-  { id: 'calls', name: 'Call recordings', desc: 'Zoom, Gong, etc.', emoji: '📞' },
+  { id: 'g2', name: 'G2 Reviews', desc: 'Product reviews & ratings', emoji: '⭐' },
+  { id: 'slack', name: 'Slack', desc: 'Internal feedback channels', emoji: '💬' },
+  { id: 'calls', name: 'Sales Calls', desc: 'Zoom, Gong recordings', emoji: '📞' },
 ];
 
 // Integrations
@@ -19,6 +22,7 @@ const integrations = [
   { id: 'slack', name: 'Slack', emoji: '💬', desc: 'Alerts & Triage' },
   { id: 'linear', name: 'Linear', emoji: '📐', desc: 'Sync Issues' },
   { id: 'jira', name: 'Jira', emoji: '📋', desc: 'Create Tickets' },
+  { id: 'github', name: 'GitHub', emoji: '🐙', desc: 'Issues & PRs' },
   { id: 'notion', name: 'Notion', emoji: '📝', desc: 'Knowledge Base' },
 ];
 
@@ -36,7 +40,7 @@ export default function OnboardingPage() {
     productName: '',
     productDescription: '',
     competitors: [] as string[],
-    sources: ['reddit', 'twitter'] as string[],
+    sources: ['reddit', 'twitter', 'linkedin'] as string[],
     integrations: [] as string[],
   });
 
@@ -80,7 +84,6 @@ export default function OnboardingPage() {
 
         if (!result.success) {
           console.error('Failed to save to Supabase:', result.error);
-          // Still continue - localStorage will be backup
         } else {
           console.log('Saved company settings to Supabase:', result.data);
         }
@@ -151,7 +154,6 @@ export default function OnboardingPage() {
       <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-[800px] h-[800px] bg-stone-200/40 rounded-full blur-[120px] mix-blend-multiply" />
           <div className="absolute bottom-0 right-1/4 w-[800px] h-[800px] bg-stone-100/60 rounded-full blur-[120px] mix-blend-multiply" />
-          <div className="grain absolute inset-0 opacity-40" />
       </div>
 
       {/* Header */}
@@ -164,8 +166,8 @@ export default function OnboardingPage() {
               {[1, 2, 3].map(s => (
                 <div
                   key={s}
-                  className={`w-6 h-1 rounded-full transition-all duration-500 ${
-                    s <= step ? 'bg-stone-900' : 'bg-stone-200'
+                  className={`h-1 rounded-full transition-all duration-500 ${
+                    s <= step ? 'bg-stone-900 w-8' : 'bg-stone-200 w-6'
                   }`}
                 />
               ))}
@@ -177,166 +179,196 @@ export default function OnboardingPage() {
       {/* Main content */}
       <main className="flex-1 flex flex-col justify-center items-center px-6 relative z-10 pt-20 pb-32">
         <div className="w-full max-w-lg">
-          <div className="glass-panel p-8 md:p-10 rounded-3xl shadow-smooth-lg backdrop-blur-xl bg-white/60 transition-all duration-500">
-            
-            {/* Step 1: What's your product? */}
-            {step === 1 && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
-                  <Sparkles size={28} className="text-white" />
-                </div>
-
-                <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-4 leading-tight">
-                  What are we building?
-                </h1>
-                <p className="text-stone-500 text-lg mb-8 leading-relaxed">
-                  Tell us about your product. Lark will search for relevant feedback across all channels.
-                </p>
-
-                <div className="space-y-4">
-                  {/* Product Name */}
-                  <div className="relative">
-                      <input
-                          type="text"
-                          value={data.productName}
-                          onChange={(e) => setData({ ...data, productName: e.target.value })}
-                          placeholder="Your product name (e.g. Notion, Linear)"
-                          autoFocus
-                          className="w-full px-5 py-4 bg-white border border-stone-200 rounded-xl text-lg placeholder:text-stone-300 focus:outline-none focus:border-stone-900 focus:ring-4 focus:ring-stone-100 transition-all shadow-sm"
-                      />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          {data.productName.length > 0 && <Check size={20} className="text-emerald-500 animate-in fade-in zoom-in" />}
-                      </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="p-8 md:p-10 rounded-3xl shadow-smooth-lg backdrop-blur-xl bg-white/70 border border-white/50"
+            >
+              {/* Step 1: What's your product? */}
+              {step === 1 && (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
+                    <Sparkles size={28} className="text-white" />
                   </div>
 
-                  {/* Competitors */}
-                  <div>
-                    <label className="block text-sm font-medium text-stone-600 mb-2">
-                      Competitors to track (optional)
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={competitorInput}
-                        onChange={(e) => setCompetitorInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
-                        placeholder="Add a competitor"
-                        className="flex-1 px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={addCompetitor}
-                        className="px-4 py-3 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
-                      >
-                        <Plus size={18} className="text-stone-600" />
-                      </button>
+                  <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-3 leading-tight">
+                    What are we building?
+                  </h1>
+                  <p className="text-stone-500 text-lg mb-8 leading-relaxed">
+                    Tell us about your product. Lark will auto-configure AI search across all channels.
+                  </p>
+
+                  <div className="space-y-5">
+                    {/* Product Name */}
+                    <div className="relative">
+                        <label className="block text-sm font-medium text-stone-700 mb-1.5">Product name</label>
+                        <input
+                            type="text"
+                            value={data.productName}
+                            onChange={(e) => setData({ ...data, productName: e.target.value })}
+                            placeholder="e.g. Notion, Linear, Figma"
+                            autoFocus
+                            className="w-full px-5 py-4 bg-white border border-stone-200 rounded-xl text-lg placeholder:text-stone-300 focus:outline-none focus:border-stone-900 focus:ring-4 focus:ring-stone-100 transition-all shadow-sm"
+                        />
+                        <div className="absolute right-4 bottom-4">
+                            {data.productName.length > 0 && <Check size={20} className="text-emerald-500" />}
+                        </div>
                     </div>
-                    {data.competitors.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {data.competitors.map(comp => (
-                          <span key={comp} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm">
-                            {comp}
-                            <button onClick={() => removeCompetitor(comp)} className="hover:text-red-500">
-                              <X size={14} />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
+
+                    {/* Auto-detected label */}
+                    {data.productName.length > 2 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="flex items-center gap-2 p-3 bg-stone-50 rounded-xl border border-stone-100"
+                      >
+                        <Sparkles size={14} className="text-amber-500" />
+                        <span className="text-sm text-stone-600">
+                          Lark will auto-search for <strong className="text-stone-900">{data.productName}</strong> across Reddit, X, LinkedIn &amp; forums
+                        </span>
+                      </motion.div>
                     )}
-                    <p className="text-xs text-stone-400 mt-2">
-                      We&apos;ll find feedback comparing you to these competitors
+
+                    {/* Competitors */}
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                        Competitors to track <span className="text-stone-400 font-normal">(optional)</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={competitorInput}
+                          onChange={(e) => setCompetitorInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
+                          placeholder="Add a competitor"
+                          className="flex-1 px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={addCompetitor}
+                          className="px-4 py-3 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                        >
+                          <Plus size={18} className="text-stone-600" />
+                        </button>
+                      </div>
+                      {data.competitors.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {data.competitors.map(comp => (
+                            <span key={comp} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm font-medium">
+                              {comp}
+                              <button onClick={() => removeCompetitor(comp)} className="hover:text-red-500 transition-colors">
+                                <X size={14} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Step 2: Where to listen? */}
+              {step === 2 && (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
+                    <Radio size={28} className="text-white" />
+                  </div>
+
+                  <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-3 leading-tight">
+                    Where do users talk?
+                  </h1>
+                  <p className="text-stone-500 text-lg mb-8 leading-relaxed">
+                    Select the channels where your customers are active. We&apos;ll scan them automatically.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {dataSources.map(source => (
+                      <button
+                        key={source.id}
+                        onClick={() => toggleSource(source.id)}
+                        className={`group flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                          data.sources.includes(source.id)
+                            ? 'border-stone-900 bg-white shadow-md'
+                            : 'border-stone-200 bg-white/50 hover:bg-white hover:border-stone-300'
+                        }`}
+                      >
+                        <span className="text-xl group-hover:scale-110 transition-transform">{source.emoji}</span>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="font-semibold text-stone-900 text-sm">{source.name}</p>
+                          <p className="text-xs text-stone-500 truncate">{source.desc}</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+                          data.sources.includes(source.id)
+                            ? 'border-stone-900 bg-stone-900'
+                            : 'border-stone-300'
+                        }`}>
+                          {data.sources.includes(source.id) && <Check size={12} className="text-white" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-stone-400 mt-4 text-center">
+                    {data.sources.length} sources selected &middot; You can add more later
+                  </p>
+                </>
+              )}
+
+              {/* Step 3: Connect integrations */}
+              {step === 3 && (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
+                    <Zap size={28} className="text-white" />
+                  </div>
+
+                  <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-3 leading-tight">
+                    Connect your stack
+                  </h1>
+                  <p className="text-stone-500 text-lg mb-8 leading-relaxed">
+                    Enable two-way sync. Lark creates tickets, updates roadmaps, and alerts your team.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    {integrations.map(int => (
+                      <button
+                        key={int.id}
+                        onClick={() => toggleIntegration(int.id)}
+                        className={`flex flex-col items-start gap-3 p-5 rounded-2xl border transition-all h-full ${
+                          data.integrations.includes(int.id)
+                            ? 'border-stone-900 bg-white shadow-md'
+                            : 'border-stone-200 bg-white/50 hover:bg-white hover:border-stone-300'
+                        }`}
+                      >
+                        <div className="flex w-full justify-between items-start">
+                            <span className="text-2xl">{int.emoji}</span>
+                            {data.integrations.includes(int.id) && (
+                              <div className="bg-stone-900 rounded-full p-0.5">
+                                  <Check size={12} className="text-white" />
+                              </div>
+                            )}
+                        </div>
+                        <div className="text-left">
+                          <span className="font-bold text-stone-900 block">{int.name}</span>
+                          <span className="text-xs text-stone-500">{int.desc}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-100 text-center">
+                    <p className="text-xs text-stone-500">
+                      No integrations needed to start &middot; You can connect them anytime
                     </p>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Where to listen? */}
-            {step === 2 && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
-                  <Radio size={28} className="text-white" />
-                </div>
-
-                <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-4 leading-tight">
-                  Where do users talk?
-                </h1>
-                <p className="text-stone-500 text-lg mb-8 leading-relaxed">
-                  Select the channels where your customers are most active. We&apos;ll monitor them 24/7.
-                </p>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {dataSources.map(source => (
-                    <button
-                      key={source.id}
-                      onClick={() => toggleSource(source.id)}
-                      className={`group flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                        data.sources.includes(source.id)
-                          ? 'border-stone-900 bg-white shadow-md'
-                          : 'border-stone-200 bg-white/50 hover:bg-white hover:border-stone-300'
-                      }`}
-                    >
-                      <span className="text-2xl group-hover:scale-110 transition-transform">{source.emoji}</span>
-                      <div className="flex-1 text-left">
-                        <p className="font-semibold text-stone-900">{source.name}</p>
-                        <p className="text-sm text-stone-500">{source.desc}</p>
-                      </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                        data.sources.includes(source.id)
-                          ? 'border-stone-900 bg-stone-900'
-                          : 'border-stone-300'
-                      }`}>
-                        {data.sources.includes(source.id) && <Check size={14} className="text-white" />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Connect integrations */}
-            {step === 3 && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="w-14 h-14 rounded-2xl bg-stone-900 flex items-center justify-center mb-6 shadow-lg shadow-stone-900/20">
-                  <Zap size={28} className="text-white" />
-                </div>
-
-                <h1 className="font-serif text-3xl md:text-4xl text-stone-900 mb-4 leading-tight">
-                  Connect your stack
-                </h1>
-                <p className="text-stone-500 text-lg mb-8 leading-relaxed">
-                  Enable two-way sync. Lark can create tickets, update roadmaps, and alert your team.
-                </p>
-
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  {integrations.map(int => (
-                    <button
-                      key={int.id}
-                      onClick={() => toggleIntegration(int.id)}
-                      className={`flex flex-col items-start gap-3 p-5 rounded-2xl border transition-all h-full ${
-                        data.integrations.includes(int.id)
-                          ? 'border-stone-900 bg-white shadow-md'
-                          : 'border-stone-200 bg-white/50 hover:bg-white hover:border-stone-300'
-                      }`}
-                    >
-                      <div className="flex w-full justify-between items-start">
-                          <span className="text-2xl">{int.emoji}</span>
-                          {data.integrations.includes(int.id) && (
-                            <div className="bg-stone-900 rounded-full p-0.5">
-                                <Check size={12} className="text-white" />
-                            </div>
-                          )}
-                      </div>
-                      <div className="text-left">
-                        <span className="font-bold text-stone-900 block">{int.name}</span>
-                        <span className="text-xs text-stone-500">{int.desc}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
@@ -352,13 +384,13 @@ export default function OnboardingPage() {
               Back
             </button>
           ) : (
-            <div /> 
+            <div />
           )}
 
           <div className="flex items-center gap-4">
              {step === 3 && (
                  <button onClick={handleNext} className="text-sm font-medium text-stone-400 hover:text-stone-600 transition-colors">
-                     Skip setup
+                     Skip for now
                  </button>
              )}
             <button
@@ -369,7 +401,7 @@ export default function OnboardingPage() {
                 {isLoading ? (
                 <>
                     <Loader2 size={18} className="animate-spin" />
-                    Finishing up...
+                    Setting up AI...
                 </>
                 ) : step === totalSteps ? (
                 <>
