@@ -53,6 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, loadProfile]);
 
   useEffect(() => {
+    // If Supabase is not configured, skip auth initialization (demo mode)
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
     // Get initial session
     const initAuth = async () => {
       try {
@@ -97,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, loadProfile]);
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     try {
       await supabase.auth.signOut();
       setUser(null);

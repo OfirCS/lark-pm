@@ -2,11 +2,15 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Create server client that reads cookies
 export async function createServerAuthClient() {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -30,6 +34,7 @@ export async function createServerAuthClient() {
 // Get current user from server
 export async function getServerUser() {
   const supabase = await createServerAuthClient();
+  if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }
@@ -37,6 +42,7 @@ export async function getServerUser() {
 // Get current session from server
 export async function getServerSession() {
   const supabase = await createServerAuthClient();
+  if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session;
 }

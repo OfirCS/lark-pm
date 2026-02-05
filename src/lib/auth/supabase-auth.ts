@@ -2,11 +2,18 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { User, Session } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+function isSupabaseConfigured() {
+  return supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
+}
 
 // Create browser client for auth
 export function createAuthClient() {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
 
@@ -39,6 +46,7 @@ export function toAuthUser(user: User, profile?: Profile): AuthUser {
 // Sign up with email/password
 export async function signUp(email: string, password: string, fullName?: string) {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -57,6 +65,7 @@ export async function signUp(email: string, password: string, fullName?: string)
 // Sign in with email/password
 export async function signIn(email: string, password: string) {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -70,6 +79,7 @@ export async function signIn(email: string, password: string) {
 // Sign in with OAuth (Google, GitHub, etc.)
 export async function signInWithOAuth(provider: 'google' | 'github') {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -85,6 +95,7 @@ export async function signInWithOAuth(provider: 'google' | 'github') {
 // Sign out
 export async function signOut() {
   const supabase = createAuthClient();
+  if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
@@ -92,6 +103,7 @@ export async function signOut() {
 // Get current session
 export async function getSession(): Promise<Session | null> {
   const supabase = createAuthClient();
+  if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session;
 }
@@ -99,6 +111,7 @@ export async function getSession(): Promise<Session | null> {
 // Get current user
 export async function getCurrentUser(): Promise<User | null> {
   const supabase = createAuthClient();
+  if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }
@@ -106,6 +119,7 @@ export async function getCurrentUser(): Promise<User | null> {
 // Get user profile
 export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = createAuthClient();
+  if (!supabase) return null;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -124,6 +138,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 // Update user profile
 export async function updateProfile(userId: string, updates: Partial<Profile>) {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { data, error } = await supabase
     .from('profiles')
@@ -139,6 +154,7 @@ export async function updateProfile(userId: string, updates: Partial<Profile>) {
 // Reset password
 export async function resetPassword(email: string) {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/reset-password`,
@@ -150,6 +166,7 @@ export async function resetPassword(email: string) {
 // Update password
 export async function updatePassword(newPassword: string) {
   const supabase = createAuthClient();
+  if (!supabase) throw new Error('Supabase not configured');
 
   const { error } = await supabase.auth.updateUser({
     password: newPassword,

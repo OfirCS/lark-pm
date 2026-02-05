@@ -21,6 +21,7 @@ import {
   Zap,
   Bell,
   Search,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo, LarkIcon } from '@/components/ui/Logo';
@@ -69,6 +70,13 @@ const navItems: NavItem[] = [
     description: 'Workflows & Pipelines',
   },
   {
+    id: 'insights',
+    label: 'Magic Pipeline',
+    href: '/dashboard/insights',
+    icon: Sparkles,
+    description: 'One-Click Analysis',
+  },
+  {
     id: 'roadmap',
     label: 'Roadmap',
     href: '/dashboard/roadmap',
@@ -115,11 +123,8 @@ function NavItemComponent({
             : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
         )}
       >
-        <div className="relative">
+        <div className="relative shrink-0">
           <Icon size={20} strokeWidth={1.5} />
-          {active && (
-            <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
-          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -159,7 +164,7 @@ function NavItemComponent({
 
         {/* Tooltip for collapsed state */}
         {collapsed && (
-          <div className="absolute left-full ml-2 px-2 py-1 bg-stone-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+          <div className="absolute left-full ml-2 px-2 py-1 bg-stone-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
             {item.label}
             {item.badge && <span className="ml-2 text-stone-400">{item.badge}</span>}
           </div>
@@ -171,22 +176,31 @@ function NavItemComponent({
 
 function TopHeader({
   onMenuToggle,
+  onSidebarToggle,
   collapsed,
   userInitials,
 }: {
   onMenuToggle: () => void;
+  onSidebarToggle: () => void;
   collapsed: boolean;
   userInitials: string;
 }) {
-  const [searchOpen, setSearchOpen] = useState(false);
-
   return (
     <header className="sticky top-0 z-30 h-16 px-4 flex items-center justify-between bg-white/80 backdrop-blur-xl border-b border-stone-200/50">
       <div className="flex items-center gap-4">
+        {/* Desktop: toggle sidebar collapse */}
+        <button
+          onClick={onSidebarToggle}
+          className="hidden md:flex p-2 hover:bg-stone-100 rounded-lg transition-colors"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <Menu size={20} className="text-stone-600" />
+        </button>
+        {/* Mobile: open mobile menu */}
         <button
           onClick={onMenuToggle}
-          className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="md:hidden p-2 hover:bg-stone-100 rounded-lg transition-colors"
+          aria-label="Open menu"
         >
           <Menu size={20} className="text-stone-600" />
         </button>
@@ -194,7 +208,6 @@ function TopHeader({
         {/* Global Search */}
         <div className="relative">
           <button
-            onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 text-sm text-stone-500 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
           >
             <Search size={16} />
@@ -261,12 +274,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return 'U';
   };
 
-  // Handle keyboard shortcut for search
+  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        // Trigger global search
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
@@ -315,7 +327,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               key={item.id}
               item={item}
               collapsed={sidebarCollapsed}
-              active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+              active={
+                item.href === '/dashboard'
+                  ? pathname === '/dashboard'
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`)
+              }
             />
           ))}
         </nav>
@@ -395,7 +411,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     key={item.id}
                     item={item}
                     collapsed={false}
-                    active={pathname === item.href}
+                    active={
+                      item.href === '/dashboard'
+                        ? pathname === '/dashboard'
+                        : pathname === item.href || pathname.startsWith(`${item.href}/`)
+                    }
                   />
                 ))}
               </nav>
@@ -413,6 +433,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <TopHeader
           onMenuToggle={() => setMobileMenuOpen(true)}
+          onSidebarToggle={() => setSidebarCollapsed(prev => !prev)}
           collapsed={sidebarCollapsed}
           userInitials={getUserInitials()}
         />
@@ -420,15 +441,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </div>
       </main>
-
-      {/* Floating AI Assistant FAB */}
-      <motion.button
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-stone-900 text-white rounded-full shadow-xl shadow-stone-900/30 flex items-center justify-center"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <Zap size={24} />
-      </motion.button>
     </div>
   );
 }
