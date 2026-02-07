@@ -26,7 +26,11 @@ export async function GET(req: Request) {
 
   const openaiApiKey = process.env.OPENAI_API_KEY;
   if (!openaiApiKey) {
-    return Response.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    return Response.json({
+      success: false,
+      error: 'OpenAI API key not configured. Cron job skipped.',
+      timestamp: new Date().toISOString(),
+    }, { status: 200 });
   }
 
   // Get config from environment variables

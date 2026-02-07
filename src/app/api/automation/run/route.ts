@@ -46,10 +46,11 @@ export async function POST(req: Request) {
     // Get OpenAI API key from environment
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
-      return Response.json(
-        { success: false, error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return Response.json({
+        success: false,
+        demo: true,
+        error: 'OpenAI API key not configured. Add OPENAI_API_KEY to your environment to enable the automation pipeline.',
+      }, { status: 200 });
     }
 
     // Validate at least one source

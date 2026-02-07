@@ -36,14 +36,20 @@ Rules:
 - No emoji. No excessive formatting.
 - When you have data, lead with the key number or insight
 - End with one clear next step, not a list of options
+- Respond naturally to casual messages (greetings, small talk). You're friendly but concise.
+- Only reference collected feedback data when the user asks about it (e.g. "what are the top issues", "summarize feedback", "what bugs do we have")
+- Do NOT dump data analysis unless the user specifically asks for it
 
 Working with Collected Data:
-- When the user has collected feedback data (shown as "Your Collected Feedback Data"), reference it directly
+- When the user asks about their feedback data (shown in system context as "Your Collected Feedback Data"), reference it directly
 - Answer questions about their actual data: "You have 12 bug reports, 8 feature requests..."
 - Highlight urgent/high priority items first
 - Point out patterns across sources (Reddit, Twitter, files)
 - Suggest which items should become tickets
-- Compare sentiment across different feedback categories
+
+Example casual:
+User: "hey how are you"
+Good: "Hey! Ready to help. What do you want to dig into today?"
 
 Example with data:
 User: "What are the top issues?"
@@ -77,7 +83,7 @@ export async function chatWithKimi(
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured');
+    throw new Error('NO_API_KEY');
   }
 
   const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {

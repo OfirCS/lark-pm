@@ -25,10 +25,28 @@ export async function POST(req: Request) {
 
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
-      return Response.json(
-        { success: false, error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      // Return a demo analysis when no API key is configured
+      return Response.json({
+        success: true,
+        demo: true,
+        parsed: {
+          fileName: body.fileName,
+          fileType: body.fileName.split('.').pop() || 'unknown',
+          totalRows: body.content.split('\n').length,
+        },
+        analysis: {
+          items: [],
+          summary: {
+            total: 0,
+            byCategory: {},
+            bySentiment: {},
+            byPriority: {},
+            topTags: [],
+            topProductAreas: [],
+          },
+          recommendations: ['Connect an OpenAI API key to enable AI-powered analysis.'],
+        },
+      });
     }
 
     const result = await quickAnalyze(

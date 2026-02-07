@@ -54,10 +54,10 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return Response.json(
-        { success: false, error: 'OpenAI API key not configured' },
-        { status: 500 }
-      );
+      return Response.json({
+        success: false,
+        error: 'OpenAI API key required for transcription. Add OPENAI_API_KEY to your environment variables.',
+      }, { status: 200 });
     }
 
     // Transcribe
