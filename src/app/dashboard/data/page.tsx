@@ -13,12 +13,14 @@ import {
   Zap,
   BarChart3,
   Home,
+  Swords,
 } from 'lucide-react';
 import { useReviewStore, createDraftFromFeedback } from '@/lib/stores/reviewStore';
-import { useCompanyStore } from '@/lib/stores/companyStore';
-import { normalizeRedditPosts, normalizeTweets } from '@/lib/pipeline/normalizer';
+import { useCompanyStore, getCompanyContextForAI } from '@/lib/stores/companyStore';
+import { normalizeRedditPosts } from '@/lib/pipeline/normalizer';
 import type { RedditPost } from '@/lib/sources/reddit';
-import type { Tweet } from '@/lib/sources/twitter';
+import { toFeedbackItems } from '@/lib/sources/web-search';
+import type { WebSearchResult } from '@/lib/sources/web-search';
 import { classifyFeedback } from '@/lib/pipeline/classifier';
 import { draftTicket } from '@/lib/pipeline/drafter';
 import type { DraftedTicket } from '@/types/pipeline';
@@ -198,13 +200,13 @@ function getTimeAgo(dateStr: string): string {
 // --- Main Page (renders inside DashboardLayout, no own sidebar) ---
 
 export default function DataPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'social'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'social' | 'competitors'>('overview');
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState('');
 
   const drafts = useReviewStore(state => state.drafts);
   const addDraft = useReviewStore(state => state.addDraft);
-  const { company, getRedditSearchTerms, getTwitterSearchTerms } = useCompanyStore();
+  const { company, getRedditSearchTerms } = useCompanyStore();
 
   const stats = useMemo(() => {
     const result = {
@@ -233,20 +235,39 @@ export default function DataPage() {
   const productName = company.productName || 'product';
   const subreddits = company.subreddits.length > 0 ? company.subreddits : ['SaaS', 'startups', 'ProductManagement'];
   const redditSearchTerms = getRedditSearchTerms();
-  const twitterSearchTerms = getTwitterSearchTerms();
+
+  // Helper: classify and add web search results to store
+  const processWebResults = async (results: WebSearchResult[], label: string) => {
+    if (results.length === 0) return;
+    const companyContext = getCompanyContextForAI();
+    const feedbackItems = toFeedbackItems(results);
+    for (const item of feedbackItems.slice(0, 4)) {
+      setScanStatus(`Classifying ${label}: ${item.title?.slice(0, 30) || item.content.slice(0, 30)}...`);
+      try {
+        const classification = await classifyFeedback(item, companyContext);
+        const draft = await draftTicket(item, classification, companyContext);
+        const draftedTicket = createDraftFromFeedback(item, classification, draft);
+        addDraft(draftedTicket);
+      } catch (error) {
+        console.error(`Error classifying ${label} item:`, error);
+      }
+    }
+  };
 
   const handleScan = async () => {
     setIsScanning(true);
     setScanStatus(`Searching for "${productName}" feedback...`);
+    const companyContext = getCompanyContextForAI();
     try {
+      // 1. Reddit (JSON API - free, no auth)
       const searchQuery = redditSearchTerms[0] || `${productName} feedback`;
-      for (const subreddit of subreddits.slice(0, 4)) {
+      for (const subreddit of subreddits.slice(0, 3)) {
         setScanStatus(`Scanning r/${subreddit}...`);
         try {
           const response = await fetch('/api/sources/reddit/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: searchQuery, subreddit, limit: 5, time: 'week' }),
+            body: JSON.stringify({ query: searchQuery, subreddit, limit: 5, time: 'month' }),
           });
           if (!response.ok) continue;
           const result = await response.json();
@@ -255,8 +276,8 @@ export default function DataPage() {
             const feedbackItems = normalizeRedditPosts(posts);
             for (const item of feedbackItems.slice(0, 3)) {
               setScanStatus(`Classifying: ${item.title?.slice(0, 30) || item.content.slice(0, 30)}...`);
-              const classification = await classifyFeedback(item);
-              const draft = await draftTicket(item, classification);
+              const classification = await classifyFeedback(item, companyContext);
+              const draft = await draftTicket(item, classification, companyContext);
               const draftedTicket = createDraftFromFeedback(item, classification, draft);
               addDraft(draftedTicket);
             }
@@ -265,34 +286,38 @@ export default function DataPage() {
           console.error(`Error scanning r/${subreddit}:`, error);
         }
       }
-      setScanStatus('Scanning X/Twitter...');
-      const twitterQueries = twitterSearchTerms.length > 0
-        ? twitterSearchTerms.slice(0, 3)
-        : [`${productName} feedback`, `${productName} review`];
-      for (const query of twitterQueries) {
-        setScanStatus(`Scanning X for "${query}"...`);
+
+      // 2. X/Twitter, LinkedIn, Forums (via AI-powered search)
+      for (const platformInfo of [
+        { platform: 'twitter', label: 'X/Twitter' },
+        { platform: 'linkedin', label: 'LinkedIn' },
+        { platform: 'forum', label: 'Forums' },
+      ] as const) {
+        setScanStatus(`Scanning ${platformInfo.label}...`);
         try {
-          const response = await fetch('/api/sources/twitter/search', {
+          const response = await fetch('/api/sources/web-search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, maxResults: 10 }),
+            body: JSON.stringify({
+              productName,
+              platform: platformInfo.platform,
+              searchTerms: company.searchTerms,
+              competitors: company.competitors,
+              productDescription: company.productDescription,
+              targetAudience: company.targetAudience,
+              currentFocus: company.currentFocus,
+              limit: 5,
+            }),
           });
-          if (!response.ok) continue;
-          const result = await response.json();
-          const tweets = result.tweets as Tweet[];
-          if (tweets && tweets.length > 0) {
-            const feedbackItems = normalizeTweets(tweets);
-            for (const item of feedbackItems.slice(0, 3)) {
-              const classification = await classifyFeedback(item);
-              const draft = await draftTicket(item, classification);
-              const draftedTicket = createDraftFromFeedback(item, classification, draft);
-              addDraft(draftedTicket);
-            }
+          if (response.ok) {
+            const result = await response.json();
+            await processWebResults(result.results || [], platformInfo.label);
           }
         } catch (error) {
-          console.error(`Error scanning Twitter for "${query}":`, error);
+          console.error(`Error scanning ${platformInfo.label}:`, error);
         }
       }
+
       setScanStatus('Done!');
       setTimeout(() => setScanStatus(''), 2000);
     } catch (error) {
@@ -303,10 +328,32 @@ export default function DataPage() {
     }
   };
 
+  // Compute competitor mentions
+  const competitors = company.competitors || [];
+  const competitorMentions = useMemo(() => {
+    if (competitors.length === 0) return { total: 0, byCompetitor: {} as Record<string, number>, items: [] as typeof drafts };
+    const byCompetitor: Record<string, number> = {};
+    const items: typeof drafts = [];
+    competitors.forEach((c) => { byCompetitor[c] = 0; });
+    drafts.forEach((d) => {
+      const text = `${d.feedbackItem.content} ${d.feedbackItem.title || ''} ${d.draft.title}`.toLowerCase();
+      let matched = false;
+      competitors.forEach((c) => {
+        if (text.includes(c.toLowerCase())) {
+          byCompetitor[c] = (byCompetitor[c] || 0) + 1;
+          matched = true;
+        }
+      });
+      if (matched) items.push(d);
+    });
+    return { total: items.length, byCompetitor, items };
+  }, [drafts, competitors]);
+
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: Home },
     { id: 'requests' as const, label: 'Requests', icon: TrendingUp, count: stats.byCategory.feature_request + stats.byCategory.bug },
     { id: 'social' as const, label: 'Social Feed', icon: MessageSquare, count: drafts.length },
+    { id: 'competitors' as const, label: 'Competitors', icon: Swords, count: competitorMentions.total },
   ];
 
   return (
@@ -314,7 +361,7 @@ export default function DataPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Intelligence Hub</h1>
+          <h1 className="text-3xl font-display tracking-tight text-stone-900">Intelligence Hub</h1>
           <p className="text-stone-500 text-sm mt-1">
             {drafts.length > 0
               ? `${drafts.length} items collected from ${Object.keys(stats.bySource).length} sources`
@@ -408,6 +455,89 @@ export default function DataPage() {
         {activeTab === 'social' && (
           <div className="max-w-2xl">
             <FeedView drafts={drafts} />
+          </div>
+        )}
+
+        {activeTab === 'competitors' && (
+          <div className="space-y-6">
+            {competitors.length === 0 ? (
+              <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto mb-4">
+                  <Swords className="w-8 h-8 text-stone-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-stone-900 mb-2">No competitors configured</h3>
+                <p className="text-stone-500 mb-6 max-w-sm mx-auto">
+                  Add competitors in your onboarding settings to track competitive mentions across feedback.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Competitor mention bars */}
+                <div className="bg-white border border-stone-200 rounded-xl p-6">
+                  <h3 className="font-semibold text-stone-900 mb-4">Mention Count by Competitor</h3>
+                  <div className="space-y-3">
+                    {Object.entries(competitorMentions.byCompetitor)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([name, count]) => {
+                        const maxCount = Math.max(...Object.values(competitorMentions.byCompetitor), 1);
+                        const pct = (count / maxCount) * 100;
+                        return (
+                          <div key={name} className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-stone-700 w-24 truncate">{name}</span>
+                            <div className="flex-1 h-8 bg-stone-100 rounded-lg overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg flex items-center px-3 transition-all duration-500"
+                                style={{ width: `${Math.max(pct, 4)}%` }}
+                              >
+                                {count > 0 && <span className="text-xs font-bold text-white">{count}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Recent competitive mentions */}
+                {competitorMentions.items.length > 0 ? (
+                  <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-stone-200">
+                      <h3 className="font-semibold text-stone-900">Recent Competitive Mentions</h3>
+                    </div>
+                    <div className="divide-y divide-stone-100">
+                      {competitorMentions.items.slice(0, 10).map((item) => {
+                        const mentionedCompetitors = competitors.filter((c) =>
+                          `${item.feedbackItem.content} ${item.feedbackItem.title || ''}`.toLowerCase().includes(c.toLowerCase())
+                        );
+                        return (
+                          <div key={item.id} className="px-6 py-4 hover:bg-stone-50/50 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-stone-900 line-clamp-1">{item.draft.title}</p>
+                                <p className="text-xs text-stone-500 mt-1 line-clamp-2">{item.feedbackItem.content.slice(0, 200)}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-xs px-2 py-0.5 bg-stone-100 text-stone-600 rounded-md">{SOURCE_CONFIG[item.feedbackItem.source]?.label || item.feedbackItem.source}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-md ${SENTIMENT_COLORS[item.classification.sentiment].bg} ${SENTIMENT_COLORS[item.classification.sentiment].text}`}>
+                                    {item.classification.sentiment}
+                                  </span>
+                                  {mentionedCompetitors.map((c) => (
+                                    <span key={c} className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md font-medium">{c}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-dashed border-stone-200 rounded-xl p-8 text-center">
+                    <p className="text-stone-400 text-sm">No competitive mentions found in collected feedback. Scan more sources to find mentions.</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

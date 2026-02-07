@@ -37,7 +37,8 @@ Return ONLY the JSON, no explanation.`;
  */
 export async function draftTicket(
   item: FeedbackItem,
-  classification: ClassificationResult
+  classification: ClassificationResult,
+  companyContext?: string
 ): Promise<{
   title: string;
   description: string;
@@ -61,7 +62,9 @@ export async function draftTicket(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: DRAFTING_PROMPT },
+          { role: 'system', content: companyContext
+            ? `You are drafting tickets for:\n${companyContext}\n\nFrame business impact and recommendations for this specific product.\n\n${DRAFTING_PROMPT}`
+            : DRAFTING_PROMPT },
           {
             role: 'user',
             content: `Feedback to draft ticket from:
@@ -118,7 +121,8 @@ ${item.title ? `Title: ${item.title}\n` : ''}Content:
  * Batch draft tickets
  */
 export async function draftTicketBatch(
-  items: Array<{ item: FeedbackItem; classification: ClassificationResult }>
+  items: Array<{ item: FeedbackItem; classification: ClassificationResult }>,
+  companyContext?: string
 ): Promise<
   Map<
     string,
@@ -138,7 +142,7 @@ export async function draftTicketBatch(
     const batch = items.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(
       batch.map(async ({ item, classification }) => {
-        const draft = await draftTicket(item, classification);
+        const draft = await draftTicket(item, classification, companyContext);
         return { id: item.id, draft };
       })
     );

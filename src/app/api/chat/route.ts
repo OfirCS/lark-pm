@@ -82,6 +82,7 @@ interface CollectedStats {
 interface ChatRequest {
   messages: ChatMessage[];
   productName?: string;
+  productContext?: string;
   // Collected feedback data from the review store
   collectedData?: {
     items: CollectedFeedbackItem[];
@@ -257,7 +258,7 @@ function formatCollectedDataForContext(data: ChatRequest['collectedData']): stri
 
 export async function POST(req: Request) {
   try {
-    const { messages, productName, collectedData } = (await req.json()) as ChatRequest;
+    const { messages, productName, productContext, collectedData } = (await req.json()) as ChatRequest;
 
     if (!messages || messages.length === 0) {
       return new Response('No messages provided', { status: 400 });
@@ -355,8 +356,8 @@ export async function POST(req: Request) {
             }
           }
 
-          // Step 3: Send "Analyzing" status if we have data
-          if (contextData) {
+          // Step 3: Send "Analyzing" status if we fetched new search data
+          if (intent.needsReddit || intent.needsWeb) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({
                 type: 'analyzing'
@@ -365,8 +366,20 @@ export async function POST(req: Request) {
           }
 
           // Build messages for OpenAI
+          let systemPrompt = PM_SYSTEM_PROMPT;
+
+          // Include product context so Lark knows about the team's product
+          if (productContext) {
+            systemPrompt += `\n\nYou are Lark, PM assistant for:\n${productContext}`;
+          }
+
+          // Include collected data as background context in the system prompt
+          if (collectedDataContext) {
+            systemPrompt += `\n\n---\n\nBackground context (the user's collected feedback data - only reference this if they ask about it):\n${collectedDataContext}`;
+          }
+
           const aiMessages: KimiMessage[] = [
-            { role: 'system', content: PM_SYSTEM_PROMPT },
+            { role: 'system', content: systemPrompt },
           ];
 
           for (const msg of messages.slice(-10)) {
@@ -376,9 +389,13 @@ export async function POST(req: Request) {
             });
           }
 
-          if (contextData) {
-            const lastAiMessage = aiMessages[aiMessages.length - 1];
-            lastAiMessage.content = `${lastAiMessage.content}\n\n---\n\nHere is the data I found:\n${contextData}\n\n---\n\nPlease analyze this data and provide insights.`;
+          // Only append search results to the user message when searches were performed
+          if (contextData && contextData !== collectedDataContext) {
+            const searchResults = contextData.replace(collectedDataContext, '').trim();
+            if (searchResults) {
+              const lastAiMessage = aiMessages[aiMessages.length - 1];
+              lastAiMessage.content = `${lastAiMessage.content}\n\n---\nSearch results:\n${searchResults}`;
+            }
           }
 
           // Step 4: Call OpenAI and stream response

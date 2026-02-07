@@ -11,6 +11,9 @@ export interface CompanyContext {
   industry?: string;
   targetAudience?: string;
 
+  // Current product focus areas
+  currentFocus?: string;
+
   // Search terms for monitoring
   searchTerms: string[];
   competitors: string[];
@@ -20,6 +23,9 @@ export interface CompanyContext {
 
   // Twitter hashtags/accounts to monitor
   twitterKeywords: string[];
+
+  // Forum/community URLs to monitor
+  forumUrls: string[];
 
   // Data sources enabled
   enabledSources: string[];
@@ -58,11 +64,13 @@ const DEFAULT_COMPANY: CompanyContext = {
   productDescription: '',
   industry: '',
   targetAudience: '',
+  currentFocus: '',
   searchTerms: [],
   competitors: [],
   subreddits: ['SaaS', 'startups', 'ProductManagement', 'Entrepreneur'],
   twitterKeywords: [],
-  enabledSources: ['reddit', 'twitter'],
+  forumUrls: [],
+  enabledSources: ['reddit', 'twitter', 'linkedin', 'forum'],
   selectedIntegrations: [],
   onboardingCompleted: false,
 };
@@ -197,7 +205,7 @@ export const useCompanyStore = create<CompanyStore>()(
 // Helper to get company context for AI prompts
 export function getCompanyContextForAI(): string {
   const store = useCompanyStore.getState();
-  const { productName, productDescription, industry, targetAudience, competitors } = store.company;
+  const { productName, productDescription, industry, targetAudience, currentFocus, competitors } = store.company;
 
   if (!productName) {
     return '';
@@ -207,6 +215,7 @@ export function getCompanyContextForAI(): string {
   if (productDescription) context += `\nDescription: ${productDescription}`;
   if (industry) context += `\nIndustry: ${industry}`;
   if (targetAudience) context += `\nTarget Audience: ${targetAudience}`;
+  if (currentFocus) context += `\nCurrent Focus: ${currentFocus}`;
   if (competitors.length > 0) context += `\nCompetitors: ${competitors.join(', ')}`;
 
   return context;

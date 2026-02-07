@@ -49,7 +49,8 @@ Return ONLY the JSON object, no explanation.`;
  * Classify a single feedback item using AI
  */
 export async function classifyFeedback(
-  item: FeedbackItem
+  item: FeedbackItem,
+  companyContext?: string
 ): Promise<ClassificationResult> {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -68,7 +69,9 @@ export async function classifyFeedback(
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: CLASSIFICATION_PROMPT },
+          { role: 'system', content: companyContext
+            ? `You are classifying feedback for:\n${companyContext}\n\nPrioritize items relevant to this product's market and current focus.\n\n${CLASSIFICATION_PROMPT}`
+            : CLASSIFICATION_PROMPT },
           {
             role: 'user',
             content: `Source: ${item.source}
@@ -118,7 +121,8 @@ ${item.title ? `Title: ${item.title}\n` : ''}Content: ${item.content}`,
  * Batch classify multiple feedback items
  */
 export async function classifyFeedbackBatch(
-  items: FeedbackItem[]
+  items: FeedbackItem[],
+  companyContext?: string
 ): Promise<Map<string, ClassificationResult>> {
   const results = new Map<string, ClassificationResult>();
 
@@ -128,7 +132,7 @@ export async function classifyFeedbackBatch(
     const batch = items.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(
       batch.map(async (item) => {
-        const classification = await classifyFeedback(item);
+        const classification = await classifyFeedback(item, companyContext);
         return { id: item.id, classification };
       })
     );

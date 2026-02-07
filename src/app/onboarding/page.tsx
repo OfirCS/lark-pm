@@ -31,7 +31,7 @@ const defaultSubreddits = ['SaaS', 'startups', 'ProductManagement', 'Entrepreneu
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { setProductName, setEnabledSources, setSelectedIntegrations, setSubreddits, setCompetitors, completeOnboarding } = useCompanyStore();
+  const { setProductName, setCompany, setEnabledSources, setSelectedIntegrations, setSubreddits, setCompetitors, completeOnboarding } = useCompanyStore();
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +39,8 @@ export default function OnboardingPage() {
   const [data, setData] = useState({
     productName: '',
     productDescription: '',
+    targetAudience: '',
+    currentFocus: '',
     competitors: [] as string[],
     sources: ['reddit', 'twitter', 'linkedin'] as string[],
     integrations: [] as string[],
@@ -70,6 +72,8 @@ export default function OnboardingPage() {
           body: JSON.stringify({
             productName: data.productName,
             productDescription: data.productDescription,
+            targetAudience: data.targetAudience,
+            currentFocus: data.currentFocus,
             competitors: data.competitors,
             searchTerms,
             subreddits: defaultSubreddits,
@@ -93,6 +97,11 @@ export default function OnboardingPage() {
 
       // Also save to local store as backup
       setProductName(data.productName);
+      setCompany({
+        productDescription: data.productDescription,
+        targetAudience: data.targetAudience,
+        currentFocus: data.currentFocus,
+      });
       setEnabledSources(data.sources);
       setSelectedIntegrations(data.integrations);
       setCompetitors(data.competitors);
@@ -232,6 +241,48 @@ export default function OnboardingPage() {
                         </span>
                       </motion.div>
                     )}
+
+                    {/* Product Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                        What does it do? <span className="text-stone-400 font-normal">(1-2 sentences)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.productDescription}
+                        onChange={(e) => setData({ ...data, productDescription: e.target.value })}
+                        placeholder="e.g. Project management tool for engineering teams"
+                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                      />
+                    </div>
+
+                    {/* Target Audience */}
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                        Who are your customers? <span className="text-stone-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.targetAudience}
+                        onChange={(e) => setData({ ...data, targetAudience: e.target.value })}
+                        placeholder="e.g. B2B SaaS, mid-market engineering teams"
+                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                      />
+                    </div>
+
+                    {/* Current Focus */}
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                        What are you focused on right now? <span className="text-stone-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.currentFocus}
+                        onChange={(e) => setData({ ...data, currentFocus: e.target.value })}
+                        placeholder="e.g. Reducing churn, improving onboarding, enterprise readiness"
+                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                      />
+                    </div>
 
                     {/* Competitors */}
                     <div>
