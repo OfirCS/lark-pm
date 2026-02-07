@@ -1,9 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { chatWithKimi, parseKimiStream } from '@/lib/kimi';
+import type { KimiMessage } from '@/lib/kimi';
 import { NextResponse } from 'next/server';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-});
 
 const SYSTEM_PROMPT = `You are Lark, an AI assistant for product managers. You help analyze customer feedback, sentiment, and feature requests across multiple platforms.
 
@@ -130,12 +127,12 @@ export async function POST(request: Request) {
         );
 
         // Check if API key is available
-        if (!process.env.ANTHROPIC_API_KEY) {
+        if (!process.env.OPENAI_API_KEY) {
           // Demo mode - simulate responses
           await simulateDemoResponse(writer, encoder, messages);
         } else {
           // Real API mode
-          await processWithClaude(writer, encoder, messages, context);
+          await processWithOpenAI(writer, encoder, messages);
         }
       } catch (error) {
         console.error('Stream error:', error);
@@ -340,32 +337,33 @@ async function simulateDemoResponse(
   }
 }
 
-async function processWithClaude(
+async function processWithOpenAI(
   writer: WritableStreamDefaultWriter<Uint8Array>,
   encoder: TextEncoder,
-  messages: { role: string; content: string }[],
-  context: unknown
+  messages: { role: string; content: string }[]
 ) {
-  const stream = await anthropic.messages.stream({
-    model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: messages.map((m) => ({
+  const aiMessages: KimiMessage[] = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...messages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     })),
+  ];
+
+  const response = await chatWithKimi(aiMessages, {
+    stream: true,
+    model: 'gpt-4o-mini',
+    temperature: 0.6,
   });
 
-  for await (const event of stream) {
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      await writer.write(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'text',
-            content: event.delta.text,
-          })}\n\n`
-        )
-      );
-    }
+  for await (const chunk of parseKimiStream(response)) {
+    await writer.write(
+      encoder.encode(
+        `data: ${JSON.stringify({
+          type: 'text',
+          content: chunk,
+        })}\n\n`
+      )
+    );
   }
 }

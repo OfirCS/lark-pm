@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, Check, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { signUp, signInWithOAuth } from '@/lib/auth/supabase-auth';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { setDemoUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -16,6 +18,12 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const handleDemoLogin = () => {
+    setIsLoading(true);
+    setDemoUser();
+    router.push('/dashboard');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +44,8 @@ export default function SignupPage() {
       }
     } catch (err) {
       console.error('Signup error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create account');
+      const msg = err instanceof Error ? err.message : 'Failed to create account';
+      setError(msg.includes('not configured') ? 'Email signup not available. Try the demo account below.' : msg);
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +57,8 @@ export default function SignupPage() {
       await signInWithOAuth('google');
     } catch (err) {
       console.error('Google signup error:', err);
-      setError('Failed to sign up with Google');
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg.includes('not configured') ? 'OAuth not available. Try the demo account below.' : 'Failed to sign up with Google');
       setIsLoading(false);
     }
   };
@@ -59,7 +69,8 @@ export default function SignupPage() {
       await signInWithOAuth('github');
     } catch (err) {
       console.error('GitHub signup error:', err);
-      setError('Failed to sign up with GitHub');
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg.includes('not configured') ? 'OAuth not available. Try the demo account below.' : 'Failed to sign up with GitHub');
       setIsLoading(false);
     }
   };
@@ -286,8 +297,20 @@ export default function SignupPage() {
             </button>
           </form>
 
+          {/* Demo login */}
+          <div className="mt-6">
+            <button
+              onClick={handleDemoLogin}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl font-medium hover:bg-amber-100 transition-all disabled:opacity-50"
+            >
+              <Sparkles size={16} />
+              Try Demo Account Instead
+            </button>
+          </div>
+
           {/* What happens next */}
-          <div className="mt-8 p-4 bg-stone-50 rounded-xl">
+          <div className="mt-6 p-4 bg-stone-50 rounded-xl">
             <p className="text-sm text-stone-600">
               <span className="font-medium">Next:</span> Quick 2-minute setup to connect your data sources
             </p>

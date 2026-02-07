@@ -4,8 +4,9 @@ import { Suspense } from 'react';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { signIn, signInWithOAuth } from '@/lib/auth/supabase-auth';
 
 function LoginContent() {
@@ -13,6 +14,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const error = searchParams.get('error');
+  const { setDemoUser } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +33,8 @@ function LoginContent() {
       router.refresh();
     } catch (err) {
       console.error('Login error:', err);
-      setAuthError(err instanceof Error ? err.message : 'Invalid email or password');
+      const msg = err instanceof Error ? err.message : 'Invalid email or password';
+      setAuthError(msg.includes('not configured') ? 'Email login not available. Try the demo account below.' : msg);
       setIsLoading(false);
     }
   };
@@ -42,7 +45,8 @@ function LoginContent() {
       await signInWithOAuth('google');
     } catch (err) {
       console.error('Google login error:', err);
-      setAuthError('Failed to sign in with Google');
+      const msg = err instanceof Error ? err.message : '';
+      setAuthError(msg.includes('not configured') ? 'OAuth not available. Try the demo account below.' : 'Failed to sign in with Google');
       setIsLoading(false);
     }
   };
@@ -53,9 +57,17 @@ function LoginContent() {
       await signInWithOAuth('github');
     } catch (err) {
       console.error('GitHub login error:', err);
-      setAuthError('Failed to sign in with GitHub');
+      const msg = err instanceof Error ? err.message : '';
+      setAuthError(msg.includes('not configured') ? 'OAuth not available. Try the demo account below.' : 'Failed to sign in with GitHub');
       setIsLoading(false);
     }
+  };
+
+  const handleDemoLogin = () => {
+    setIsLoading(true);
+    setAuthError(null);
+    setDemoUser();
+    router.push(callbackUrl);
   };
 
   return (
@@ -176,9 +188,21 @@ function LoginContent() {
             </button>
           </form>
 
+          {/* Demo login */}
+          <div className="mt-6">
+            <button
+              onClick={handleDemoLogin}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl font-medium hover:bg-amber-100 transition-all disabled:opacity-50"
+            >
+              <Sparkles size={16} />
+              Try Demo Account
+            </button>
+          </div>
+
           {/* Sign up link */}
-          <p className="mt-6 text-center text-sm text-stone-500">
-            Don't have an account?{' '}
+          <p className="mt-4 text-center text-sm text-stone-500">
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="font-medium text-stone-900 hover:text-indigo-600 transition-colors">
               Sign up
             </Link>

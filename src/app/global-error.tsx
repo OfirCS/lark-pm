@@ -5,7 +5,7 @@ export default function GlobalError({
   reset,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  reset?: () => void;
 }) {
   return (
     <html lang="en">
@@ -22,7 +22,13 @@ export default function GlobalError({
             <h2 className="text-xl font-bold text-stone-900 mb-2">Something went wrong</h2>
             <p className="text-stone-500 mb-6">An unexpected error occurred. Please try again.</p>
             <button
-              onClick={() => reset()}
+              onClick={() => {
+                if (typeof reset === 'function') {
+                  reset();
+                } else {
+                  window.location.reload();
+                }
+              }}
               className="px-6 py-3 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition-colors"
             >
               Try Again

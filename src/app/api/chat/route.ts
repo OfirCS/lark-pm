@@ -5,23 +5,24 @@ import { readWebpage, searchWeb, formatWebpageForContext } from '@/lib/sources/j
 export const runtime = 'edge';
 
 // Generate a demo PM-style response when Kimi API is unavailable
-function generateDemoResponse(query: string, contextData: string): string {
+function generateDemoResponse(query: string, contextData: string, productName?: string): string {
   const hasRedditData = contextData.includes('Reddit');
   const hasWebData = contextData.includes('Web Search');
   const q = query.toLowerCase();
+  const name = productName || 'your product';
 
   if (hasRedditData || hasWebData) {
-    return `Found 12 relevant discussions across ${hasRedditData ? 'Reddit' : ''}${hasRedditData && hasWebData ? ' and ' : ''}${hasWebData ? 'web sources' : ''}.
+    return `Found 12 relevant discussions about ${productName || 'this'} across ${hasRedditData ? 'Reddit' : ''}${hasRedditData && hasWebData ? ' and ' : ''}${hasWebData ? 'web sources' : ''}.
 
 Sentiment is 78% positive. Main themes: pricing questions, integration requests, and onboarding friction.
 
-Worth noting: 3 posts mention switching from competitors due to pricing. Could be an angle for positioning.
+Worth noting: 3 posts mention switching from competitors due to pricing. Could be an angle for ${name}'s positioning.
 
 Want me to dig deeper into any of these?`;
   }
 
   if (q.includes('feature') || q.includes('request')) {
-    return `Top 3 requests right now:
+    return `Top 3 requests for ${name} right now:
 - SSO/SAML (enterprise blocker, 23 mentions)
 - Slack integration (12 mentions, easy win)
 - Mobile app (8 mentions, big lift)
@@ -32,7 +33,7 @@ Should I pull the actual quotes from customers?`;
   }
 
   if (q.includes('sentiment') || q.includes('feedback')) {
-    return `Overall sentiment: 72% positive, trending up from last month.
+    return `Overall sentiment for ${name}: 72% positive, trending up from last month.
 
 Red flag: onboarding complaints doubled this week. Mostly around the setup wizard timing out.
 
@@ -41,9 +42,20 @@ The product quality feedback is strong. Pricing concerns exist but aren't dealbr
 I'd focus on that onboarding issue first.`;
   }
 
-  return `Hey, I'm Lark. I track what customers are saying and surface what matters.
+  if (productName) {
+    return `Hey, I'm Lark — your PM assistant for ${productName}.
 
 Ask me things like:
+- "What are people saying about ${productName}?"
+- "Top feature requests from enterprise users"
+- "What are people saying about our pricing?"
+
+What do you want to know?`;
+  }
+
+  return `Hey, I'm Lark. Complete onboarding so I can track feedback for your product.
+
+Once set up, ask me things like:
 - "What's the sentiment on Reddit this week?"
 - "Top feature requests from enterprise users"
 - "What are people saying about our pricing?"
@@ -413,7 +425,7 @@ export async function POST(req: Request) {
             }
           } catch (error) {
             console.warn('AI API error, using demo mode:', error);
-            const demoResponse = generateDemoResponse(lastMessage.content, contextData);
+            const demoResponse = generateDemoResponse(lastMessage.content, contextData, productName);
             const words = demoResponse.split(' ');
             for (let i = 0; i < words.length; i += 3) {
               const chunk = words.slice(i, i + 3).join(' ') + ' ';

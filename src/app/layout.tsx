@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { CompanyProvider } from "@/components/providers/CompanyProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Lark - AI Customer Intelligence for Product Managers",
@@ -26,11 +27,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const stored = JSON.parse(localStorage.getItem('lark-theme') || '{}');
+                const theme = stored.state?.theme || 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body className="antialiased">
         <AuthProvider>
           <CompanyProvider>
-            {children}
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
           </CompanyProvider>
         </AuthProvider>
       </body>

@@ -1,8 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { createAuthClient, AuthUser, toAuthUser, getProfile, Profile } from '@/lib/auth/supabase-auth';
+
+const DEMO_USER_KEY = 'lark-demo-user';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -12,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setDemoUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   signOut: async () => {},
   refreshProfile: async () => {},
+  setDemoUser: () => {},
 });
 
 export function useAuth() {
@@ -32,13 +36,19 @@ export function useAuth() {
   return context;
 }
 
+const DEMO_AUTH_USER: AuthUser = {
+  id: 'demo-user-001',
+  email: 'demo@lark.pm',
+  fullName: 'Demo User',
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const supabase = createAuthClient();
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const isDemoModeRef = useRef(false);
 
   const loadProfile = useCallback(async (userId: string) => {
     const profileData = await getProfile(userId);
@@ -52,8 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, loadProfile]);
 
+  // Check for demo user on mount
   useEffect(() => {
-    // If Supabase is not configured, skip auth initialization (demo mode)
+    try {
+      const stored = localStorage.getItem(DEMO_USER_KEY);
+      if (stored) {
+        setUser(DEMO_AUTH_USER);
+        setIsDemoMode(true);
+        isDemoModeRef.current = true;
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const supabase = createAuthClient();
+
+    // If Supabase is not configured, skip auth initialization
     if (!supabase) {
       setIsLoading(false);
       return;
@@ -80,14 +104,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log('Auth state changed:', event);
-
+      async (event: AuthChangeEvent, newSession: Session | null) => {
         if (newSession?.user) {
           const profileData = await loadProfile(newSession.user.id);
           setUser(toAuthUser(newSession.user, profileData || undefined));
           setSession(newSession);
-        } else {
+        } else if (!isDemoModeRef.current) {
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -100,19 +122,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, loadProfile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setDemoUser = useCallback(() => {
+    setUser(DEMO_AUTH_USER);
+    setIsDemoMode(true);
+    isDemoModeRef.current = true;
+    setIsLoading(false);
+    try {
+      localStorage.setItem(DEMO_USER_KEY, 'true');
+    } catch {}
+  }, []);
 
   const handleSignOut = async () => {
-    if (!supabase) return;
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
-      throw error;
+    // Clear demo mode
+    if (isDemoMode || isDemoModeRef.current) {
+      setIsDemoMode(false);
+      isDemoModeRef.current = false;
+      try {
+        localStorage.removeItem(DEMO_USER_KEY);
+      } catch {}
     }
+
+    // Clear Supabase session
+    const supabase = createAuthClient();
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    }
+
+    setUser(null);
+    setSession(null);
+    setProfile(null);
   };
 
   const value = {
@@ -120,9 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     profile,
     isLoading,
-    isAuthenticated: !!session,
+    isAuthenticated: !!session || isDemoMode,
     signOut: handleSignOut,
     refreshProfile,
+    setDemoUser,
   };
 
   return (

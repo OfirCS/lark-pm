@@ -9,12 +9,17 @@ function isSupabaseConfigured() {
   return supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 }
 
-// Create browser client for auth
+// Singleton browser client for auth
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
+
 export function createAuthClient() {
   if (!isSupabaseConfigured()) {
     return null;
   }
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  if (!browserClient) {
+    browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  }
+  return browserClient;
 }
 
 // Auth types

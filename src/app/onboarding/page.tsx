@@ -29,6 +29,13 @@ const integrations = [
 // Default subreddits by industry
 const defaultSubreddits = ['SaaS', 'startups', 'ProductManagement', 'Entrepreneur', 'smallbusiness'];
 
+const fieldReveal = {
+  initial: { opacity: 0, height: 0, marginTop: 0 },
+  animate: { opacity: 1, height: 'auto', marginTop: 20 },
+  exit: { opacity: 0, height: 0, marginTop: 0 },
+  transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const },
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { setProductName, setCompany, setEnabledSources, setSelectedIntegrations, setSubreddits, setCompetitors, completeOnboarding } = useCompanyStore();
@@ -157,6 +164,10 @@ export default function OnboardingPage() {
     return true;
   };
 
+  const showDescription = data.productName.length >= 2;
+  const showSecondaryFields = data.productName.length >= 2;
+  const showCompetitors = data.productName.length >= 2;
+
   return (
     <div className="min-h-screen bg-stone-50 relative overflow-hidden flex flex-col">
       {/* Background Ambience */}
@@ -195,8 +206,12 @@ export default function OnboardingPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="p-8 md:p-10 rounded-3xl shadow-smooth-lg backdrop-blur-xl bg-white/70 border border-white/50"
+              className="rounded-3xl shadow-smooth-lg backdrop-blur-xl bg-white/70 border border-white/50 overflow-hidden"
             >
+              {/* Amber accent line at top */}
+              <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+
+              <div className="p-8 md:p-10">
               {/* Step 1: What's your product? */}
               {step === 1 && (
                 <>
@@ -208,11 +223,11 @@ export default function OnboardingPage() {
                     What are we building?
                   </h1>
                   <p className="text-stone-500 text-lg mb-8 leading-relaxed">
-                    Tell us about your product. Lark will auto-configure AI search across all channels.
+                    Start with your product name. Lark handles the rest.
                   </p>
 
-                  <div className="space-y-5">
-                    {/* Product Name */}
+                  <div>
+                    {/* Product Name — prominent */}
                     <div className="relative">
                         <label className="block text-sm font-medium text-stone-700 mb-1.5">Product name</label>
                         <input
@@ -228,97 +243,111 @@ export default function OnboardingPage() {
                         </div>
                     </div>
 
-                    {/* Auto-detected label */}
-                    {data.productName.length > 2 && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="flex items-center gap-2 p-3 bg-stone-50 rounded-xl border border-stone-100"
-                      >
-                        <Sparkles size={14} className="text-amber-500" />
-                        <span className="text-sm text-stone-600">
-                          Lark will auto-search for <strong className="text-stone-900">{data.productName}</strong> across Reddit, X, LinkedIn &amp; forums
-                        </span>
-                      </motion.div>
-                    )}
-
-                    {/* Product Description */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                        What does it do? <span className="text-stone-400 font-normal">(1-2 sentences)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={data.productDescription}
-                        onChange={(e) => setData({ ...data, productDescription: e.target.value })}
-                        placeholder="e.g. Project management tool for engineering teams"
-                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
-                      />
-                    </div>
-
-                    {/* Target Audience */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                        Who are your customers? <span className="text-stone-400 font-normal">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={data.targetAudience}
-                        onChange={(e) => setData({ ...data, targetAudience: e.target.value })}
-                        placeholder="e.g. B2B SaaS, mid-market engineering teams"
-                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
-                      />
-                    </div>
-
-                    {/* Current Focus */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                        What are you focused on right now? <span className="text-stone-400 font-normal">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={data.currentFocus}
-                        onChange={(e) => setData({ ...data, currentFocus: e.target.value })}
-                        placeholder="e.g. Reducing churn, improving onboarding, enterprise readiness"
-                        className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
-                      />
-                    </div>
-
-                    {/* Competitors */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                        Competitors to track <span className="text-stone-400 font-normal">(optional)</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={competitorInput}
-                          onChange={(e) => setCompetitorInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
-                          placeholder="Add a competitor"
-                          className="flex-1 px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
-                        />
-                        <button
-                          type="button"
-                          onClick={addCompetitor}
-                          className="px-4 py-3 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                    {/* Auto-detected banner — richer */}
+                    <AnimatePresence>
+                      {data.productName.length > 2 && (
+                        <motion.div
+                          {...fieldReveal}
+                          className="flex items-start gap-2.5 p-3.5 bg-amber-50/80 rounded-xl border border-amber-200/50"
                         >
-                          <Plus size={18} className="text-stone-600" />
-                        </button>
-                      </div>
-                      {data.competitors.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {data.competitors.map(comp => (
-                            <span key={comp} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm font-medium">
-                              {comp}
-                              <button onClick={() => removeCompetitor(comp)} className="hover:text-red-500 transition-colors">
-                                <X size={14} />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
+                          <Sparkles size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                          <span className="text-sm text-stone-600 leading-snug">
+                            Lark will become your PM assistant for <strong className="text-stone-900">{data.productName}</strong>. We&apos;ll track mentions, feedback &amp; competitor activity across Reddit, X, LinkedIn &amp; forums.
+                          </span>
+                        </motion.div>
                       )}
-                    </div>
+                    </AnimatePresence>
+
+                    {/* Product Description — textarea, appears after name */}
+                    <AnimatePresence>
+                      {showDescription && (
+                        <motion.div {...fieldReveal}>
+                          <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                            What does it do? <span className="text-stone-400 font-normal">(1-2 sentences)</span>
+                          </label>
+                          <textarea
+                            value={data.productDescription}
+                            onChange={(e) => setData({ ...data, productDescription: e.target.value })}
+                            placeholder="e.g. Project management tool for engineering teams"
+                            rows={2}
+                            className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all resize-none"
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Audience + Focus — side by side on desktop */}
+                    <AnimatePresence>
+                      {showSecondaryFields && (
+                        <motion.div {...fieldReveal} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                              Customers <span className="text-stone-400 font-normal">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={data.targetAudience}
+                              onChange={(e) => setData({ ...data, targetAudience: e.target.value })}
+                              placeholder="e.g. B2B SaaS teams"
+                              className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                              Focus <span className="text-stone-400 font-normal">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={data.currentFocus}
+                              onChange={(e) => setData({ ...data, currentFocus: e.target.value })}
+                              placeholder="e.g. Reducing churn"
+                              className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Competitors — last */}
+                    <AnimatePresence>
+                      {showCompetitors && (
+                        <motion.div {...fieldReveal}>
+                          <label className="block text-sm font-medium text-stone-700 mb-1">
+                            Competitors to track <span className="text-stone-400 font-normal">(optional)</span>
+                          </label>
+                          <p className="text-xs text-stone-400 mb-2">We&apos;ll track what users say about them vs you</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={competitorInput}
+                              onChange={(e) => setCompetitorInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
+                              placeholder="Add a competitor"
+                              className="flex-1 px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-all"
+                            />
+                            <button
+                              type="button"
+                              onClick={addCompetitor}
+                              className="px-4 py-3 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors"
+                            >
+                              <Plus size={18} className="text-stone-600" />
+                            </button>
+                          </div>
+                          {data.competitors.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {data.competitors.map(comp => (
+                                <span key={comp} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm font-medium">
+                                  {comp}
+                                  <button onClick={() => removeCompetitor(comp)} className="hover:text-red-500 transition-colors">
+                                    <X size={14} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </>
               )}
@@ -418,6 +447,7 @@ export default function OnboardingPage() {
                   </div>
                 </>
               )}
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>

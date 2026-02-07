@@ -276,22 +276,38 @@ export default function DashboardPage() {
     }
   };
 
+  const productName = company.productName || '';
+  const competitors = company.competitors || [];
+
   const getSuggestions = () => {
     const suggestions: string[] = [];
     if (drafts.length > 0) {
-      suggestions.push('Top issues from collected feedback');
+      if (productName) {
+        suggestions.push(`What are people saying about ${productName}?`);
+      } else {
+        suggestions.push('Top issues from collected feedback');
+      }
       suggestions.push('Summarize urgent items');
       if (stats.byCategory.feature_request > 0) {
-        suggestions.push('Most requested features');
+        suggestions.push(productName ? `Summarize ${stats.byCategory.feature_request} feature requests` : 'Most requested features');
       }
       if (stats.byCategory.bug > 0) {
-        suggestions.push('Reported bugs');
+        suggestions.push(productName ? `${stats.byCategory.bug} bugs — show the worst ones` : 'Reported bugs');
       }
     } else {
-      suggestions.push('Most requested features');
-      suggestions.push('Sentiment trends this week');
-      suggestions.push('Competitor analysis');
-      suggestions.push('Help me prioritize my roadmap');
+      if (productName) {
+        suggestions.push(`What are people saying about ${productName}?`);
+        suggestions.push(`Top complaints about ${productName}`);
+        if (competitors.length > 0) {
+          suggestions.push(`${productName} vs ${competitors[0]}`);
+        }
+        suggestions.push(`What should ${productName} ship next?`);
+      } else {
+        suggestions.push('Most requested features');
+        suggestions.push('Sentiment trends this week');
+        suggestions.push('Competitor analysis');
+        suggestions.push('Help me prioritize my roadmap');
+      }
     }
     return suggestions.slice(0, 4);
   };
@@ -354,7 +370,7 @@ export default function DashboardPage() {
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col max-w-3xl mx-auto">
-      <ContextBar stats={contextStats} />
+      <ContextBar stats={contextStats} productName={productName || undefined} />
 
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 && (
@@ -363,6 +379,7 @@ export default function DashboardPage() {
               userName={userName}
               greetingTime={getGreetingTime()}
               highlights={getHighlights()}
+              productName={productName || undefined}
             />
             <PulseFeed items={drafts} />
           </>

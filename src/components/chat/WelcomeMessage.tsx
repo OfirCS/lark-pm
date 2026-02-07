@@ -1,8 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Sparkles, AlertCircle, TrendingUp, Lightbulb, ArrowRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowRight } from 'lucide-react';
 
 interface Highlight {
   type: 'urgent' | 'trend' | 'suggestion';
@@ -12,89 +11,69 @@ interface Highlight {
 
 interface WelcomeMessageProps {
   userName: string;
+  greetingTime?: 'morning' | 'afternoon' | 'evening';
   highlights: Highlight[];
+  productName?: string;
 }
 
-const highlightConfig = {
-  urgent: {
-    icon: AlertCircle,
-    color: 'rose',
-    label: 'Urgent',
-  },
-  trend: {
-    icon: TrendingUp,
-    color: 'indigo',
-    label: 'Trend',
-  },
-  suggestion: {
-    icon: Lightbulb,
-    color: 'amber',
-    label: 'Suggestion',
-  },
-};
+export function WelcomeMessage({ userName, greetingTime, highlights, productName }: WelcomeMessageProps) {
+  const greeting = greetingTime ? `Good ${greetingTime}` : 'Hello';
 
-export function WelcomeMessage({ userName, highlights }: WelcomeMessageProps) {
+  const getSubheading = () => {
+    const hasData = highlights.length > 0;
+    if (hasData && productName) {
+      return <>Here&apos;s what&apos;s happening with <strong className="text-stone-700">{productName}</strong></>;
+    }
+    if (hasData) {
+      return <>{highlights.length} item{highlights.length !== 1 ? 's' : ''} need your attention</>;
+    }
+    if (productName) {
+      return <>Ready to track feedback for <strong className="text-stone-700">{productName}</strong></>;
+    }
+    return <>Set up your product to get started</>;
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="mb-8"
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="py-8"
     >
-      <div className="bg-gradient-to-br from-stone-900 to-stone-800 rounded-2xl p-6 text-white shadow-xl shadow-stone-900/20">
-        {/* Header */}
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
-            <Sparkles size={24} className="text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold mb-1">
-              Good morning, {userName}
-            </h2>
-            <p className="text-stone-400">
-              I found {highlights.length} new insights that need your attention.
-            </p>
-          </div>
-        </div>
+      <h1 className="text-2xl font-medium text-stone-900 mb-1">
+        {greeting}, {userName}
+      </h1>
+      <p className="text-stone-400 text-sm">
+        {getSubheading()}
+      </p>
 
-        {/* Highlights */}
-        <div className="space-y-2">
-          {highlights.map((highlight, index) => {
-            const config = highlightConfig[highlight.type];
-            const Icon = config.icon;
-
-            return (
-              <motion.button
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-                onClick={highlight.action}
-                className={cn(
-                  'w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all group',
-                  'bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10'
-                )}
-              >
-                <div className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                  highlight.type === 'urgent' && 'bg-rose-500/20 text-rose-400',
-                  highlight.type === 'trend' && 'bg-indigo-500/20 text-indigo-400',
-                  highlight.type === 'suggestion' && 'bg-amber-500/20 text-amber-400'
-                )}>
-                  <Icon size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{highlight.text}</p>
-                </div>
-                <ArrowRight
-                  size={16}
-                  className="text-stone-500 group-hover:text-white group-hover:translate-x-1 transition-all"
-                />
-              </motion.button>
-            );
-          })}
+      {highlights.length > 0 && (
+        <div className="mt-6 space-y-1">
+          {highlights.map((highlight, index) => (
+            <motion.button
+              key={index}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.15 + index * 0.05 }}
+              onClick={highlight.action}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors group hover:bg-stone-50"
+            >
+              <span className={
+                highlight.type === 'urgent'
+                  ? 'w-1.5 h-1.5 rounded-full bg-red-500 shrink-0'
+                  : highlight.type === 'trend'
+                  ? 'w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0'
+                  : 'w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0'
+              } />
+              <span className="flex-1 text-stone-600">{highlight.text}</span>
+              <ArrowRight
+                size={14}
+                className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all"
+              />
+            </motion.button>
+          ))}
         </div>
-      </div>
+      )}
     </motion.div>
   );
 }

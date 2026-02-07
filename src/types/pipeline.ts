@@ -3,7 +3,7 @@
 // Core feedback item - normalized from any source
 export interface FeedbackItem {
   id: string;
-  source: 'reddit' | 'twitter' | 'slack' | 'support' | 'call' | 'file';
+  source: 'reddit' | 'twitter' | 'linkedin' | 'forum' | 'slack' | 'support' | 'call' | 'file';
   sourceId: string;
   sourceUrl: string;
 
@@ -208,7 +208,10 @@ export const SENTIMENT_COLORS: Record<Sentiment, { bg: string; text: string }> =
 export const SOURCE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
   reddit: { icon: '🔴', color: '#ff4500', label: 'Reddit' },
   twitter: { icon: '𝕏', color: '#000000', label: 'X/Twitter' },
-  slack: { icon: '💬', color: '#4A154B', label: 'Slack' },
+  linkedin: { icon: '🔵', color: '#0A66C2', label: 'LinkedIn' },
+  forum: { icon: '💬', color: '#6B7280', label: 'Forum' },
+  slack: { icon: '🟣', color: '#4A154B', label: 'Slack' },
   support: { icon: '🎫', color: '#1F8CED', label: 'Support' },
   call: { icon: '📞', color: '#2D8CFF', label: 'Call' },
+  file: { icon: '📄', color: '#78716C', label: 'File' },
 };

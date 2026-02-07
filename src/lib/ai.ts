@@ -1,8 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+import { chatWithKimiSync } from '@/lib/kimi';
+import type { KimiMessage } from '@/lib/kimi';
 
 export interface ExtractionResult {
   feature_requests: Array<{
@@ -41,13 +38,8 @@ Extract the following in JSON format:
 Respond with valid JSON only, no markdown.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const messages: KimiMessage[] = [{ role: 'user', content: prompt }];
+    const text = await chatWithKimiSync(messages, { model: 'gpt-4o-mini', maxTokens: 1024 });
     return JSON.parse(text);
   } catch (error) {
     console.error('AI extraction error:', error);
@@ -103,13 +95,8 @@ Extract the following in JSON format:
 Respond with valid JSON only, no markdown.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const messages: KimiMessage[] = [{ role: 'user', content: prompt }];
+    const text = await chatWithKimiSync(messages, { model: 'gpt-4o-mini', maxTokens: 2048 });
     return JSON.parse(text);
   } catch (error) {
     console.error('AI extraction error:', error);
@@ -142,13 +129,8 @@ Group similar concepts together (e.g., "SSO", "SAML", "single sign-on" → "Ente
 Respond with valid JSON only, no markdown.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const messages: KimiMessage[] = [{ role: 'user', content: prompt }];
+    const text = await chatWithKimiSync(messages, { model: 'gpt-4o-mini', maxTokens: 1024 });
     return JSON.parse(text);
   } catch (error) {
     console.error('AI grouping error:', error);
@@ -185,13 +167,8 @@ Generate a comprehensive PRD with these sections:
 Format in clean markdown.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    return response.content[0].type === 'text' ? response.content[0].text : '';
+    const messages: KimiMessage[] = [{ role: 'user', content: prompt }];
+    return await chatWithKimiSync(messages, { model: 'gpt-4o-mini', maxTokens: 4096 });
   } catch (error) {
     console.error('PRD generation error:', error);
     return '# Error generating PRD\n\nUnable to generate PRD from the provided sources.';
