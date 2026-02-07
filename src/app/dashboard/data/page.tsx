@@ -236,21 +236,38 @@ export default function DataPage() {
   const subreddits = company.subreddits.length > 0 ? company.subreddits : ['SaaS', 'startups', 'ProductManagement'];
   const redditSearchTerms = getRedditSearchTerms();
 
-  // Helper: classify and add web search results to store
+  // Helper: add web search results to store using inline classification
+  // (avoids separate classify + draft API calls since generation prompt already classifies)
   const processWebResults = async (results: WebSearchResult[], label: string) => {
     if (results.length === 0) return;
-    const companyContext = getCompanyContextForAI();
     const feedbackItems = toFeedbackItems(results);
-    for (const item of feedbackItems.slice(0, 4)) {
-      setScanStatus(`Classifying ${label}: ${item.title?.slice(0, 30) || item.content.slice(0, 30)}...`);
-      try {
-        const classification = await classifyFeedback(item, companyContext);
-        const draft = await draftTicket(item, classification, companyContext);
-        const draftedTicket = createDraftFromFeedback(item, classification, draft);
-        addDraft(draftedTicket);
-      } catch (error) {
-        console.error(`Error classifying ${label} item:`, error);
-      }
+    const existingUrls = new Set(drafts.map(d => d.feedbackItem.sourceUrl));
+    for (const item of feedbackItems.slice(0, 3)) {
+      if (existingUrls.has(item.sourceUrl)) continue; // deduplicate
+      setScanStatus(`Processing ${label}: ${item.title?.slice(0, 30) || item.content.slice(0, 30)}...`);
+      // Use inline classification from the generation prompt
+      const classification = {
+        category: (item._category || 'other') as 'bug' | 'feature_request' | 'praise' | 'question' | 'complaint' | 'other',
+        confidence: 75,
+        priority: (item._priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
+        priorityReasons: [],
+        sentiment: (item._sentiment || 'neutral') as 'positive' | 'negative' | 'neutral',
+        keywords: [],
+        customerSegment: 'unknown' as const,
+      };
+      const categoryPrefix: Record<string, string> = {
+        bug: 'Fix:', feature_request: 'Add:', complaint: 'Address:',
+        question: 'Document:', praise: 'Note:', other: 'Review:',
+      };
+      const prefix = categoryPrefix[classification.category] || 'Review:';
+      const draftData = {
+        title: `${prefix} ${(item.title || item.content.slice(0, 70)).slice(0, 75)}`,
+        description: `## Source\n${label} - ${item.author}\n\n## Content\n> "${item.content}"\n\n## Classification\n- **Category:** ${classification.category}\n- **Priority:** ${classification.priority}\n- **Sentiment:** ${classification.sentiment}`,
+        suggestedLabels: [classification.category.replace('_', '-')],
+        suggestedPriority: classification.priority,
+      };
+      const draftedTicket = createDraftFromFeedback(item, classification, draftData);
+      addDraft(draftedTicket);
     }
   };
 
@@ -258,6 +275,7 @@ export default function DataPage() {
     setIsScanning(true);
     setScanStatus(`Searching for "${productName}" feedback...`);
     const companyContext = getCompanyContextForAI();
+    const existingUrls = new Set(drafts.map(d => d.feedbackItem.sourceUrl));
     try {
       // 1. Reddit (JSON API - free, no auth)
       const searchQuery = redditSearchTerms[0] || `${productName} feedback`;
@@ -274,7 +292,9 @@ export default function DataPage() {
           const posts = result.posts as RedditPost[];
           if (posts.length > 0) {
             const feedbackItems = normalizeRedditPosts(posts);
-            for (const item of feedbackItems.slice(0, 3)) {
+            for (const item of feedbackItems.slice(0, 2)) {
+              if (existingUrls.has(item.sourceUrl)) continue; // skip duplicates
+              existingUrls.add(item.sourceUrl);
               setScanStatus(`Classifying: ${item.title?.slice(0, 30) || item.content.slice(0, 30)}...`);
               const classification = await classifyFeedback(item, companyContext);
               const draft = await draftTicket(item, classification, companyContext);
@@ -306,7 +326,7 @@ export default function DataPage() {
               productDescription: company.productDescription,
               targetAudience: company.targetAudience,
               currentFocus: company.currentFocus,
-              limit: 5,
+              limit: 3,
             }),
           });
           if (response.ok) {

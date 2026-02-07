@@ -12,6 +12,10 @@ export interface WebSearchResult {
   author: string;
   platform: 'twitter' | 'linkedin' | 'forum';
   engagement?: number;
+  // Inline classification from generation prompt (avoids separate classify call)
+  category?: 'bug' | 'feature_request' | 'praise' | 'question' | 'complaint' | 'other';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  sentiment?: 'positive' | 'negative' | 'neutral';
 }
 
 /**
@@ -73,6 +77,7 @@ Requirements:
 - Mix of: feature requests, bugs, praise, complaints, competitor comparisons
 - Make them feel real - specific details, realistic usernames, varied sentiments
 - Include realistic engagement numbers
+- Classify each post inline (category, priority, sentiment)
 
 Return a JSON array:
 [{
@@ -80,7 +85,10 @@ Return a JSON array:
   "snippet": "full post content",
   "url": "realistic ${platform} URL",
   "author": "realistic username",
-  "engagement": number (0-100)
+  "engagement": number (0-100),
+  "category": "bug" | "feature_request" | "praise" | "question" | "complaint" | "other",
+  "priority": "low" | "medium" | "high" | "urgent",
+  "sentiment": "positive" | "negative" | "neutral"
 }]
 
 Return ONLY the JSON array, no markdown.`;
@@ -96,7 +104,7 @@ Return ONLY the JSON array, no markdown.`;
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.8,
-        max_tokens: 2000,
+        max_tokens: 1500,
       }),
     });
 
@@ -163,8 +171,13 @@ export async function searchAllPlatforms(
 
 /**
  * Convert web search results to FeedbackItems
+ * Preserves inline classification from the generation prompt
  */
-export function toFeedbackItems(results: WebSearchResult[]): FeedbackItem[] {
+export function toFeedbackItems(results: WebSearchResult[]): (FeedbackItem & {
+  _category?: string;
+  _priority?: string;
+  _sentiment?: string;
+})[] {
   return results.map((r) => ({
     id: `fb_${r.platform}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     source: r.platform as FeedbackItem['source'],
@@ -178,6 +191,10 @@ export function toFeedbackItems(results: WebSearchResult[]): FeedbackItem[] {
     fetchedAt: new Date().toISOString(),
     engagementScore: r.engagement || 30,
     metadata: {},
+    // Carry inline classification to avoid extra API calls
+    _category: r.category,
+    _priority: r.priority,
+    _sentiment: r.sentiment,
   }));
 }
 
@@ -191,17 +208,17 @@ function generateFallbackResults(
 ): WebSearchResult[] {
   const templates = {
     twitter: [
-      { title: `${productName} review`, snippet: `Just tried ${productName} and I have to say, the onboarding is really smooth. Would love to see better export options though.`, author: 'pm_enthusiast', engagement: 45 },
-      { title: `${productName} feature request`, snippet: `Dear @${productName.replace(/\s/g, '')}, we need SSO for enterprise. This is blocking our team of 200+ from adopting.`, author: 'enterprise_user', engagement: 72 },
-      { title: `${productName} vs competitors`, snippet: `Evaluated ${productName} against 5 competitors. Best UI by far but missing key integrations (Jira, Slack).`, author: 'tech_reviewer', engagement: 58 },
+      { title: `${productName} review`, snippet: `Just tried ${productName} and I have to say, the onboarding is really smooth. Would love to see better export options though.`, author: 'pm_enthusiast', engagement: 45, category: 'feature_request' as const, priority: 'medium' as const, sentiment: 'positive' as const },
+      { title: `${productName} feature request`, snippet: `Dear @${productName.replace(/\s/g, '')}, we need SSO for enterprise. This is blocking our team of 200+ from adopting.`, author: 'enterprise_user', engagement: 72, category: 'feature_request' as const, priority: 'high' as const, sentiment: 'negative' as const },
+      { title: `${productName} vs competitors`, snippet: `Evaluated ${productName} against 5 competitors. Best UI by far but missing key integrations (Jira, Slack).`, author: 'tech_reviewer', engagement: 58, category: 'feature_request' as const, priority: 'medium' as const, sentiment: 'positive' as const },
     ],
     linkedin: [
-      { title: `My experience with ${productName}`, snippet: `After 3 months of using ${productName} for our product team, here are my thoughts: great for feedback collection, needs better reporting. Would recommend for teams under 50.`, author: 'Sarah Chen, VP Product', engagement: 40 },
-      { title: `Why we switched to ${productName}`, snippet: `Our PM team switched from spreadsheets to ${productName}. The AI classification saves us 4 hours/week. Only pain point: no Figma integration.`, author: 'Marcus Johnson, Head of Product', engagement: 55 },
+      { title: `My experience with ${productName}`, snippet: `After 3 months of using ${productName} for our product team, here are my thoughts: great for feedback collection, needs better reporting. Would recommend for teams under 50.`, author: 'Sarah Chen, VP Product', engagement: 40, category: 'praise' as const, priority: 'low' as const, sentiment: 'positive' as const },
+      { title: `Why we switched to ${productName}`, snippet: `Our PM team switched from spreadsheets to ${productName}. The AI classification saves us 4 hours/week. Only pain point: no Figma integration.`, author: 'Marcus Johnson, Head of Product', engagement: 55, category: 'feature_request' as const, priority: 'medium' as const, sentiment: 'positive' as const },
     ],
     forum: [
-      { title: `[Discussion] ${productName} for product teams`, snippet: `Has anyone used ${productName} for managing customer feedback? We're evaluating it for our SaaS product. Main concerns: pricing for growing teams, data privacy, API access.`, author: 'devops_mike', engagement: 35 },
-      { title: `${productName} alternative?`, snippet: `Looking for alternatives to ${productName}. Love the concept but need better self-hosted options. Any suggestions?`, author: 'startup_cto', engagement: 28 },
+      { title: `[Discussion] ${productName} for product teams`, snippet: `Has anyone used ${productName} for managing customer feedback? We're evaluating it for our SaaS product. Main concerns: pricing for growing teams, data privacy, API access.`, author: 'devops_mike', engagement: 35, category: 'question' as const, priority: 'medium' as const, sentiment: 'neutral' as const },
+      { title: `${productName} alternative?`, snippet: `Looking for alternatives to ${productName}. Love the concept but need better self-hosted options. Any suggestions?`, author: 'startup_cto', engagement: 28, category: 'complaint' as const, priority: 'medium' as const, sentiment: 'negative' as const },
     ],
   };
 
