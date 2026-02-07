@@ -110,7 +110,7 @@ function RequestsView({ drafts }: { drafts: DraftedTicket[] }) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${CATEGORY_COLORS[req.classification.category].bg} ${CATEGORY_COLORS[req.classification.category].text}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${(CATEGORY_COLORS[req.classification.category] || CATEGORY_COLORS.other).bg} ${(CATEGORY_COLORS[req.classification.category] || CATEGORY_COLORS.other).text}`}>
                     {req.classification.category.replace('_', ' ')}
                   </span>
                 </td>
@@ -169,7 +169,7 @@ function FeedView({ drafts }: { drafts: DraftedTicket[] }) {
             {item.feedbackItem.content}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <span className={`text-xs px-1.5 py-0.5 rounded ${CATEGORY_COLORS[item.classification.category].bg} ${CATEGORY_COLORS[item.classification.category].text}`}>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${(CATEGORY_COLORS[item.classification.category] || CATEGORY_COLORS.other).bg} ${(CATEGORY_COLORS[item.classification.category] || CATEGORY_COLORS.other).text}`}>
               {item.classification.category.replace('_', ' ')}
             </span>
             {item.feedbackItem.sourceUrl && (

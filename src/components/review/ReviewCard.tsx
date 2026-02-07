@@ -42,7 +42,7 @@ export function ReviewCard({
   const { feedbackItem, classification, draft: ticketDraft, status } = draft;
   const sourceConfig = SOURCE_CONFIG[feedbackItem.source] || SOURCE_CONFIG.reddit;
   const priorityColors = PRIORITY_COLORS[classification.priority];
-  const categoryColors = CATEGORY_COLORS[classification.category];
+  const categoryColors = CATEGORY_COLORS[classification.category] || CATEGORY_COLORS.other;
   const sentimentColors = SENTIMENT_COLORS[classification.sentiment];
 
   const isActionable = status === 'pending' || status === 'edited';
