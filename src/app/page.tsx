@@ -1038,6 +1038,7 @@ function ClassificationDemo() {
         <AnimatePresence>
           {stage >= 1 && (
             <motion.span
+              key="category"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[12px] font-medium border border-indigo-100"
@@ -1047,6 +1048,7 @@ function ClassificationDemo() {
           )}
           {stage >= 2 && (
             <motion.span
+              key="priority"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 rounded-full text-[12px] font-medium border border-rose-100"
@@ -1056,6 +1058,7 @@ function ClassificationDemo() {
           )}
           {stage >= 3 && (
             <motion.span
+              key="sentiment"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-full text-[12px] font-medium border border-red-100"
