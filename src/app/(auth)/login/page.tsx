@@ -1,13 +1,14 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { signIn, signInWithOAuth } from '@/lib/auth/supabase-auth';
+import { DEMO_MODE } from '@/lib/demo/config';
 
 function LoginContent() {
   const router = useRouter();
@@ -21,6 +22,15 @@ function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(error);
+
+  // Public demo: no auth backend — go straight into the working app.
+  useEffect(() => {
+    if (DEMO_MODE) {
+      setDemoUser();
+      router.replace('/dashboard');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

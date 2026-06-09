@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { DemoProvider } from "@/components/providers/DemoProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { CompanyProvider } from "@/components/providers/CompanyProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
@@ -42,13 +43,15 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <AuthProvider>
-          <CompanyProvider>
-            <ThemeProvider>
-              {children}
-            </ThemeProvider>
-          </CompanyProvider>
-        </AuthProvider>
+        <DemoProvider>
+          <AuthProvider>
+            <CompanyProvider>
+              <ThemeProvider>
+                {children}
+              </ThemeProvider>
+            </CompanyProvider>
+          </AuthProvider>
+        </DemoProvider>
       </body>
     </html>
   );

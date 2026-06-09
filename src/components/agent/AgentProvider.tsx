@@ -61,10 +61,11 @@ export function AgentProvider({ children }: AgentProviderProps) {
     setInputValue('');
     setStreaming(true);
 
-    // Create placeholder for agent response
-    const agentMessageId = crypto.randomUUID();
+    // The thinking placeholder. Each distinct stage of the agent run becomes its
+    // own persistent message bubble so the full reasoning trail stays visible.
+    const thinkingId = crypto.randomUUID();
     addMessage({
-      id: agentMessageId,
+      id: thinkingId,
       role: 'agent',
       type: 'thinking',
       content: '',
@@ -76,6 +77,17 @@ export function AgentProvider({ children }: AgentProviderProps) {
       timestamp: new Date(),
       streaming: true,
     });
+
+    // Lazily create (once) a dedicated bubble per stage so they all persist.
+    const stageIds: Record<string, string> = { thinking: thinkingId };
+    const ensureStage = (key: string, type: AgentMessage['type']): string => {
+      if (!stageIds[key]) {
+        const id = crypto.randomUUID();
+        stageIds[key] = id;
+        addMessage({ id, role: 'agent', type, content: '', data: {}, timestamp: new Date(), streaming: true });
+      }
+      return stageIds[key];
+    };
 
     try {
       const response = await fetch('/api/agent', {
@@ -110,7 +122,7 @@ export function AgentProvider({ children }: AgentProviderProps) {
 
               switch (data.type) {
                 case 'thinking':
-                  updateMessage(agentMessageId, {
+                  updateMessage(thinkingId, {
                     type: 'thinking',
                     data: {
                       thinkingSteps: data.data?.steps as MessageData['thinkingSteps'],
@@ -118,32 +130,36 @@ export function AgentProvider({ children }: AgentProviderProps) {
                   });
                   break;
 
-                case 'text':
+                case 'text': {
+                  const id = ensureStage('text', 'text');
                   fullContent += data.content || '';
-                  updateMessage(agentMessageId, {
-                    type: 'text',
-                    content: fullContent,
-                  });
+                  updateMessage(id, { type: 'text', content: fullContent });
                   break;
+                }
 
-                case 'options':
-                  updateMessage(agentMessageId, {
+                case 'options': {
+                  const id = ensureStage('options', 'options');
+                  updateMessage(id, {
                     type: 'options',
                     content: data.content || 'Please select an option:',
                     data: { options: data.data?.options as MessageData['options'] },
                   });
                   break;
+                }
 
-                case 'search_progress':
-                  updateMessage(agentMessageId, {
+                case 'search_progress': {
+                  const id = ensureStage('search', 'search_progress');
+                  updateMessage(id, {
                     type: 'search_progress',
                     content: 'Searching...',
                     data: { searchProgress: data.data?.progress as MessageData['searchProgress'] },
                   });
                   break;
+                }
 
-                case 'results':
-                  updateMessage(agentMessageId, {
+                case 'results': {
+                  const id = ensureStage('results', 'search_results');
+                  updateMessage(id, {
                     type: 'search_results',
                     content: data.content || '',
                     data: {
@@ -152,14 +168,17 @@ export function AgentProvider({ children }: AgentProviderProps) {
                     },
                   });
                   break;
+                }
 
-                case 'impact':
-                  updateMessage(agentMessageId, {
+                case 'impact': {
+                  const id = ensureStage('impact', 'impact_analysis');
+                  updateMessage(id, {
                     type: 'impact_analysis',
                     content: '',
                     data: { impact: data.data?.impact as MessageData['impact'] },
                   });
                   break;
+                }
               }
             } catch (e) {
               console.error('Failed to parse chunk:', e);
@@ -168,11 +187,11 @@ export function AgentProvider({ children }: AgentProviderProps) {
         }
       }
 
-      // Mark as no longer streaming
-      updateMessage(agentMessageId, { streaming: false });
+      // Mark every created bubble as no longer streaming.
+      Object.values(stageIds).forEach((id) => updateMessage(id, { streaming: false }));
     } catch (error) {
       console.error('Agent error:', error);
-      updateMessage(agentMessageId, {
+      updateMessage(thinkingId, {
         type: 'text',
         content: 'Sorry, I encountered an error. Please try again.',
         streaming: false,

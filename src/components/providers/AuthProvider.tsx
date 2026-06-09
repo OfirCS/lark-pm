@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { createAuthClient, AuthUser, toAuthUser, getProfile, Profile } from '@/lib/auth/supabase-auth';
+import { DEMO_MODE } from '@/lib/demo/config';
 
 const DEMO_USER_KEY = 'lark-demo-user';
 
@@ -62,8 +63,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, loadProfile]);
 
-  // Check for demo user on mount
+  // Check for demo user on mount.
+  // In the public demo build there is no auth backend, so authenticate
+  // automatically — visitors land straight in the working app, no login wall.
   useEffect(() => {
+    if (DEMO_MODE) {
+      setUser(DEMO_AUTH_USER);
+      setIsDemoMode(true);
+      isDemoModeRef.current = true;
+      setIsLoading(false);
+      return;
+    }
     try {
       const stored = localStorage.getItem(DEMO_USER_KEY);
       if (stored) {

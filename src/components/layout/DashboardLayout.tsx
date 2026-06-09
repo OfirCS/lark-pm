@@ -8,6 +8,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { useReviewStore } from '@/lib/stores/reviewStore';
 import { useThemeStore } from '@/lib/stores/themeStore';
 import { CommandPalette } from '@/components/ui/CommandPalette';
+import { AgentProvider, AgentPanel, AgentTrigger } from '@/components/agent';
 import {
   Home,
   BarChart3,
@@ -144,6 +145,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <AgentProvider>
     <div className="min-h-screen bg-stone-50 flex">
       <CommandPalette
         open={commandPaletteOpen}
@@ -315,6 +317,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* Floating AI assistant — the agentic showcase */}
+      <AgentTrigger />
+      <AgentPanel />
     </div>
+    </AgentProvider>
   );
 }

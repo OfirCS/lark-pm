@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, ArrowLeft } from 'lucide-react';
+import { asset } from '@/lib/demo/config';
 
 export default function BrandPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,10 +27,10 @@ export default function BrandPage() {
     };
 
     if (canvasRef.current) {
-      loadLogo('/lark-logo.svg', canvasRef.current, 512);
+      loadLogo(asset('/lark-logo.svg'), canvasRef.current, 512);
     }
     if (canvasBoxedRef.current) {
-      loadLogo('/lark-logo-boxed.svg', canvasBoxedRef.current, 512);
+      loadLogo(asset('/lark-logo-boxed.svg'), canvasBoxedRef.current, 512);
     }
   }, []);
 
@@ -93,7 +94,7 @@ export default function BrandPage() {
           <h3 className="font-medium text-stone-900 mb-4">SVG Files (Vector)</h3>
           <div className="flex gap-4">
             <a
-              href="/lark-logo.svg"
+              href={asset('/lark-logo.svg')}
               download="lark-logo.svg"
               className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-lg text-sm hover:border-stone-300 transition-colors"
             >
@@ -101,7 +102,7 @@ export default function BrandPage() {
               lark-logo.svg
             </a>
             <a
-              href="/lark-logo-boxed.svg"
+              href={asset('/lark-logo-boxed.svg')}
               download="lark-logo-boxed.svg"
               className="flex items-center gap-2 px-4 py-2 border border-stone-200 rounded-lg text-sm hover:border-stone-300 transition-colors"
             >

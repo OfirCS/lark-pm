@@ -2,6 +2,14 @@
 
 AI-powered PM assistant that automatically turns customer feedback into actionable tickets.
 
+**🔗 Live demo:** https://ofircs.github.io/lark-pm/
+
+> The live link is a fully self-contained, public **demo build** — no login, no
+> API keys, no backend. The "agentic" AI (the *Ask Lark* assistant, the Magic
+> Pipeline, the Intelligence Hub) is driven by a realistic, scripted simulation
+> that runs entirely in the browser, so the whole product is explorable and
+> nothing sensitive is ever exposed. See [Demo mode](#demo-mode) below.
+
 ## What it does
 
 Lark monitors your customer feedback sources (Reddit, Twitter/X), uses AI to classify and prioritize issues, drafts tickets, and sends them to your PM tools (Linear, Jira) after your approval.
@@ -9,6 +17,29 @@ Lark monitors your customer feedback sources (Reddit, Twitter/X), uses AI to cla
 ```
 Reddit/Twitter → AI Classification → Draft Tickets → Review Queue → Linear/Jira
 ```
+
+## Agentic showcase
+
+Open the dashboard and click **Ask Lark** (bottom-right, or ⌘K). The assistant
+runs a transparent, multi-stage agent loop you can watch live:
+
+```
+🧠 Think  →  🔎 Search 4 sources  →  📚 Cite sources  →  📊 Score impact  →  ✍️ Answer  →  ⚡ Suggested actions
+```
+
+Every stage streams in as its own bubble — thinking steps, per-platform search
+progress, ranked source cards, a revenue/role impact analysis, a streamed
+recommendation, and follow-up action chips.
+
+## Demo mode
+
+The public build sets `NEXT_PUBLIC_DEMO_MODE=true`. A small client-side
+interceptor (`src/lib/demo/`) answers every `/api/*` call with scripted,
+realistic data — including simulated server-sent-event streams — so the app is
+fully interactive offline and **secret-free**. To run the real backend instead
+(e.g. on Vercel with your own keys), build with `NEXT_PUBLIC_DEMO_MODE=false`;
+the interceptor disables itself and the real API routes (preserved in
+`archive/api-routes/`) take over.
 
 ## Quick Start
 
@@ -27,8 +58,14 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Environment Variables
 
+The public demo needs **none** of these. They are only for the real backend
+(see [Demo mode](#demo-mode)). Never commit real secrets — `.env*` is gitignored.
+
 ```env
-# Required
+# Optional - turn the scripted demo off to use real API routes
+NEXT_PUBLIC_DEMO_MODE=false
+
+# Required for the real backend (server-side only, never sent to the browser)
 OPENAI_API_KEY=sk-...
 
 # Optional - Twitter/X integration
@@ -41,6 +78,13 @@ JIRA_EMAIL=...
 JIRA_DOMAIN=...
 ```
 
+## Deployment
+
+Pushing to `main` (or the active feature branch) runs
+`.github/workflows/deploy.yml`, which builds a static export (`next export` →
+`out/`) and publishes it to **GitHub Pages**. One-time setup: in the repo,
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
 ## Features
 
 - **Multi-source ingestion** - Pull feedback from Reddit, Twitter/X
@@ -52,33 +96,33 @@ JIRA_DOMAIN=...
 
 ## Stack
 
-- Next.js 15 (App Router)
+- Next.js 16 (App Router, static export)
 - TypeScript
 - Tailwind CSS
 - Zustand (state management)
-- OpenAI GPT-4o-mini (classification + drafting)
+- Framer Motion (animation)
+- OpenAI GPT-4o-mini (classification + drafting, in the real backend)
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── dashboard/
-│   │   ├── page.tsx        # Main dashboard with AI chat
-│   │   ├── data/           # Data sources overview
-│   │   └── review/         # Ticket review queue
-│   └── api/
-│       ├── chat/           # AI conversation endpoint
-│       └── pipeline/       # Ingest, classify, draft APIs
+│   ├── page.tsx            # Landing page (interactive agentic demos)
+│   ├── dashboard/          # Home chat, Intelligence, Review, Digest, Pipeline, Automation
+│   ├── onboarding/         # Product setup flow
+│   └── settings/           # Integrations
+├── components/
+│   └── agent/              # "Ask Lark" agent panel (thinking / search / impact)
 ├── lib/
-│   ├── pipeline/           # Core pipeline logic
-│   │   ├── classifier.ts   # AI classification
-│   │   ├── drafter.ts      # AI ticket drafting
-│   │   └── normalizer.ts   # Data normalization
+│   ├── demo/               # Demo-mode: fetch interceptor + scripted mock data
+│   ├── pipeline/           # classifier · drafter · clusterer · normalizer
 │   ├── sources/            # Data source integrations
 │   └── stores/             # Zustand stores
-└── types/
-    └── pipeline.ts         # Type definitions
+└── types/                  # Type definitions
+
+archive/                    # Real backend (API routes, auth, middleware) —
+                            # excluded from the static demo build, kept for reference
 ```
 
 ## License

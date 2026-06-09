@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { DEMO_MODE } from '@/lib/demo/config';
 import { ArrowRight, Eye, EyeOff, Check, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -18,6 +19,15 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Public demo: skip account creation, drop visitors into onboarding.
+  useEffect(() => {
+    if (DEMO_MODE) {
+      setDemoUser();
+      router.replace('/onboarding');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDemoLogin = () => {
     setIsLoading(true);
